@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ học phí</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1F0; --surface:#FFFFFF; --surface2:#F6F8F7; --ink:#17222C; --muted:#5B6873; --line:#D9DFE2;
+  --jade:#1B7560; --jade-soft:#D8EEE6; --amber:#A8690F; --amber-soft:#F7EAD0;
+  --red:#B0243A; --red-soft:#F6DCE0; --blue:#28579A; --blue-soft:#DDE6F3; --focus:#28579A;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10161B; --surface:#182129; --surface2:#1E2831; --ink:#E4EAEE; --muted:#9AA7B1; --line:#2B3741;
+    --jade:#52C4A0; --jade-soft:#17362E; --amber:#E2AA4C; --amber-soft:#382C15;
+    --red:#F07D8F; --red-soft:#3B1D25; --blue:#86ABE2; --blue-soft:#1C2B3F; --focus:#86ABE2;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10161B; --surface:#182129; --surface2:#1E2831; --ink:#E4EAEE; --muted:#9AA7B1; --line:#2B3741;
+  --jade:#52C4A0; --jade-soft:#17362E; --amber:#E2AA4C; --amber-soft:#382C15;
+  --red:#F07D8F; --red-soft:#3B1D25; --blue:#86ABE2; --blue-soft:#1C2B3F; --focus:#86ABE2;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 60px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-bottom:18px}
+.brand{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0;flex:1 1 auto}
+.brand small{display:block;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:0}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:500}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.btn.danger{color:var(--red);border-color:var(--red-soft)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.pay{background:var(--jade);border-color:var(--jade);color:var(--surface)}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+.monthnav{display:flex;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.monthnav button{border:0;background:none;padding:7px 12px;font-size:18px;line-height:1;color:var(--muted)}
+.monthnav button:hover{color:var(--ink)}
+.monthnav strong{min-width:128px;text-align:center;font-weight:600}
+.tabs{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
+.tabs button{border:0;background:none;padding:5px 12px;border-radius:6px;color:var(--muted);font-weight:500}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+.spacer{flex:1}
+.search{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;min-width:0;width:200px;max-width:100%}
+
+/* summary */
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px}
+.summary div{padding:12px 16px;border-left:1px solid var(--line)}
+.summary div:first-child{border-left:0}
+.summary span{display:block;font-size:13px;color:var(--muted)}
+.summary b{font-size:19px;font-weight:600}
+.summary .ok b{color:var(--jade)} .summary .owe b{color:var(--red)}
+@media (max-width:640px){.summary{grid-template-columns:1fr 1fr}.summary div:nth-child(3){border-left:0}.summary div:nth-child(n+3){border-top:1px solid var(--line)}}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--muted)}
+.chip[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);font-weight:600}
+
+/* list */
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1.4fr) auto;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);cursor:pointer}
+.row:first-child{border-top:0}
+.row:hover{background:var(--surface2)}
+.row .name{font-weight:600}
+.row .sub{font-size:13px;color:var(--muted)}
+.sess{font-size:13px}
+.meter{height:5px;background:var(--line);border-radius:3px;margin-top:4px;overflow:hidden;max-width:140px}
+.meter i{display:block;height:100%;background:var(--blue)}
+.money{font-size:13px;color:var(--muted)}
+.money b{color:var(--ink);font-weight:600}
+.rowend{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+@media (max-width:720px){
+  .row{grid-template-columns:1fr auto;grid-template-areas:"a d" "b b" "c c";row-gap:6px}
+  .row>:nth-child(1){grid-area:a}.row>:nth-child(2){grid-area:b}.row>:nth-child(3){grid-area:c}.row>:nth-child(4){grid-area:d}
+}
+.st{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.st.paid{background:var(--jade-soft);color:var(--jade)}
+.st.partial{background:var(--amber-soft);color:var(--amber)}
+.st.owed{background:var(--red-soft);color:var(--red)}
+.st.upcoming{background:var(--blue-soft);color:var(--blue)}
+.st.none{background:var(--surface2);color:var(--muted)}
+.tag{font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-soft);padding:1px 7px;border-radius:4px;margin-left:6px;vertical-align:1px}
+
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.empty p{margin:0 0 12px}
+
+/* year grid */
+.yearwrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto}
+table.year{border-collapse:collapse;width:100%;min-width:760px;font-size:13px}
+table.year th,table.year td{border-top:1px solid var(--line);padding:0;text-align:center}
+table.year thead th{border-top:0;padding:10px 4px;color:var(--muted);font-weight:500}
+table.year th.nm{text-align:left;padding:8px 14px;position:sticky;left:0;background:var(--surface);font-weight:600;min-width:150px;z-index:1}
+table.year td button{width:100%;min-height:40px;border:0;background:none;font-size:12px;font-weight:600;padding:4px}
+table.year td button.paid{background:var(--jade-soft);color:var(--jade)}
+table.year td button.partial{background:var(--amber-soft);color:var(--amber)}
+table.year td button.owed{background:var(--red-soft);color:var(--red)}
+table.year td button.upcoming{color:var(--blue)}
+table.year td button.none{color:var(--line);cursor:default}
+table.year td.cur{box-shadow:inset 0 0 0 2px var(--ink)}
+table.year tfoot td{padding:8px 4px;font-weight:600;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);margin-top:10px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(10,16,20,.4);opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--bg);z-index:21;transform:translateX(100%);transition:transform .25s ease;overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 18px) 18px calc(env(safe-area-inset-bottom,0px) + 40px);border-left:1px solid var(--line)}
+.drawer.on{transform:none}
+@media (prefers-reduced-motion:reduce){.drawer,.scrim{transition:none}}
+.dhead{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
+.dhead h2{margin:0;font-size:21px;line-height:1.25}
+.dhead .sub{color:var(--muted);font-size:13px}
+.x{border:0;background:none;font-size:24px;line-height:1;padding:2px 6px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card h3 .spacer{flex:1}
+
+.mstrip{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+.mstrip button{border:0;border-radius:5px;padding:6px 0;font-size:12px;font-weight:600;background:var(--surface2);color:var(--muted)}
+.mstrip button.paid{background:var(--jade-soft);color:var(--jade)}
+.mstrip button.partial{background:var(--amber-soft);color:var(--amber)}
+.mstrip button.owed{background:var(--red-soft);color:var(--red)}
+.mstrip button.upcoming{background:var(--blue-soft);color:var(--blue)}
+.mstrip button.sel{box-shadow:0 0 0 2px var(--ink)}
+
+/* calendar — the centrepiece */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .dow{font-size:12px;color:var(--muted);text-align:center;padding-bottom:2px}
+.day{position:relative;aspect-ratio:1/1;border:1px solid var(--line);background:var(--surface);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;font-size:14px;font-weight:500}
+.day:hover{border-color:var(--muted)}
+.day.sched{border-style:dashed;border-color:var(--blue);background:var(--blue-soft)}
+.day.today .n{text-decoration:underline;text-underline-offset:3px}
+.day .mk{font-size:11px;font-weight:700;line-height:1;margin-top:2px}
+.day.p{background:var(--jade);border-color:var(--jade);color:var(--surface)}
+.day.a{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.day.e{background:var(--amber-soft);border-color:var(--amber);color:var(--amber)}
+.day.m{background:var(--blue);border-color:var(--blue);color:var(--surface)}
+.pad{aspect-ratio:1/1}
+.calstats{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin-top:10px;color:var(--muted)}
+.calstats b{color:var(--ink)}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
+.legend.cal-lg span::before{border-radius:50%}
+.attbar{margin-bottom:10px}
+.seg.sm button{font-size:13px;padding:6px 6px}
+.day.picked{box-shadow:inset 0 0 0 3px var(--ink)}
+.day.picked::after{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--ink)}
+.day .nt{position:absolute;bottom:4px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:currentColor;opacity:.7}
+.multibar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--surface2);font-size:14px}
+.multibar b{margin-right:auto}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.stat4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.stat4 button{border:1.5px solid var(--line);background:var(--surface2);border-radius:10px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:13px;font-weight:500;color:var(--muted)}
+.stat4 button b{font-size:18px;line-height:1.2}
+.stat4 button[aria-pressed="true"][data-v="p"]{background:var(--jade);border-color:var(--jade);color:var(--surface)}
+.stat4 button[aria-pressed="true"][data-v="m"]{background:var(--blue);border-color:var(--blue);color:var(--surface)}
+.stat4 button[aria-pressed="true"][data-v="a"]{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.stat4 button[aria-pressed="true"][data-v="e"]{background:var(--amber-soft);border-color:var(--amber);color:var(--amber)}
+.stepper{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.stepper>button{width:42px;height:42px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);font-size:20px;line-height:1}
+.field .stepper input{width:84px;text-align:center;font-size:18px;font-weight:600;padding:7px 4px}
+.stepper .chips{margin:0 0 0 6px}
+.dlg .sub{color:var(--muted);font-size:13px;margin:-8px 0 14px}
+.note.warn{background:var(--amber-soft);color:var(--amber)}
+
+.kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:14px}
+.kv span{color:var(--muted)}
+.kv b{font-weight:600;text-align:right}
+.kv .owe{color:var(--red)} .kv .ok{color:var(--jade)}
+
+.pays{list-style:none;margin:0;padding:0}
+.pays li{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.pays li:first-child{border-top:0}
+.pays .d{color:var(--muted);font-size:12px;min-width:74px}
+.pays .t{flex:1;min-width:0}
+.pays .t small{display:block;color:var(--muted);font-size:12px}
+.pays .del{border:0;background:none;color:var(--muted);font-size:18px;padding:0 4px}
+.pays .del:hover{color:var(--red)}
+
+/* dialog */
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:0;width:min(460px,calc(100% - 24px));max-height:calc(100% - 24px)}
+dialog::backdrop{background:rgba(10,16,20,.45)}
+.dlg{padding:18px}
+.dlg h2{margin:0 0 14px;font-size:18px}
+.field{margin-bottom:12px}
+.field label,.field .lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:8px 10px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.days{display:flex;gap:4px;flex-wrap:wrap}
+.days label{margin:0}
+.days input{position:absolute;opacity:0;width:1px;height:1px}
+.days span{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:5px 9px;font-size:13px;color:var(--muted);cursor:pointer}
+.days input:checked+span{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.days input:focus-visible+span{outline:2px solid var(--focus);outline-offset:2px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;padding:3px;background:var(--surface2)}
+.seg button{flex:1;border:0;background:none;padding:6px;border-radius:6px;color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+.note{font-size:13px;color:var(--muted);background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:12px}
+.dlgfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.dlgfoot .left{margin-right:auto}
+
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 14px;border-radius:10px;font-size:14px;display:flex;gap:12px;align-items:center;z-index:40;max-width:calc(100% - 32px)}
+.toast[hidden]{display:none}
+.toast button{border:0;background:none;color:inherit;font-weight:700;text-decoration:underline;padding:0}
+.syncnote{font-size:12px;color:var(--muted);margin-top:18px;text-align:center}
+.tabs .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:var(--red);color:var(--surface);font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.tabs button[aria-selected="true"] .badge{background:var(--surface);color:var(--ink)}
+.banner{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--amber);background:var(--amber-soft);color:var(--amber);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-weight:500}
+.banner span{flex:1}
+.tag.ck{color:var(--jade);background:var(--jade-soft)}
+.kind{margin-bottom:12px}
+.hide{display:none!important}
+
+/* reminders */
+.rlist{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.ritem{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:0 14px;align-items:center;padding:12px 16px 12px 0;border-top:1px solid var(--line)}
+.ritem:first-child{border-top:0}
+.ritem::before{content:"";align-self:stretch;margin:-12px 0;background:var(--c)}
+.ritem.red{--c:var(--red)} .ritem.amber{--c:var(--amber)} .ritem.blue{--c:var(--blue)}
+.ritem .who{font-weight:600;border:0;background:none;padding:0;text-align:left}
+.ritem .who:hover{text-decoration:underline}
+.ritem .what{font-size:14px}
+.ritem .what b{color:var(--c)}
+.ritem .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:600px){.ritem{grid-template-columns:4px minmax(0,1fr)}.ritem .acts{grid-column:2;justify-content:flex-start;margin-top:8px}}
+.rhead{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;font-size:14px;color:var(--muted)}
+.rhead select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 8px}
+.rgroup{font-size:13px;font-weight:600;color:var(--muted);margin:18px 0 8px}
+.rgroup:first-of-type{margin-top:0}
+
+/* course card */
+.prog{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line);margin:4px 0 8px}
+.prog i{display:block;height:100%}
+.prog .a{background:var(--jade)} .prog .b{background:var(--red)} .prog .c{background:var(--blue);opacity:.55}
+.plegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-bottom:12px}
+.plegend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;background:var(--c)}
+.big{font-size:22px;font-weight:700;line-height:1.2}
+.big small{font-size:14px;font-weight:500;color:var(--muted)}
+table.plan{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+table.plan th{font-weight:500;color:var(--muted);text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+table.plan td{padding:6px;border-bottom:1px solid var(--line)}
+table.plan tr.cur td{background:var(--surface2);font-weight:600}
+table.plan td.r,table.plan th.r{text-align:right}
+table.plan button{border:0;background:none;padding:0;font-weight:inherit;text-decoration:underline;text-underline-offset:2px}
+
+/* stats */
+.chartbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 10px 6px;margin-bottom:14px}
+.chart{display:block;width:100%;height:auto}
+.chart .bar{fill:var(--jade)}
+.chart .slot{fill:transparent;cursor:pointer}
+.chart g:hover .slot{fill:var(--surface2)}
+.chart g.sel .slot{fill:var(--jade-soft)}
+.chart .due{stroke:var(--ink);stroke-width:2;stroke-dasharray:4 3}
+.chart text{fill:var(--muted);font-size:12px;font-family:inherit}
+.chart .val{fill:var(--ink);font-weight:600;font-size:11px}
+.chart g:focus-visible{outline:none}
+.chart g:focus-visible .slot{stroke:var(--focus);stroke-width:2}
+.stwrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto;margin-bottom:14px}
+table.st{border-collapse:collapse;width:100%;min-width:620px;font-size:14px}
+table.st th,table.st td{padding:9px 12px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+table.st thead th{border-top:0;font-weight:500;color:var(--muted);font-size:13px}
+table.st th:first-child,table.st td:first-child{text-align:left}
+table.st tbody tr{cursor:pointer}
+table.st tbody tr:hover{background:var(--surface2)}
+table.st tbody tr.sel{background:var(--jade-soft)}
+table.st tfoot td{font-weight:700}
+table.st .cash{color:var(--jade);font-weight:600} table.st .owe{color:var(--red)}
+.stnote{font-size:12px;color:var(--muted);margin:-6px 0 14px}
+textarea#mText{width:100%;min-height:130px;border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:10px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand">Sổ học phí<small>Theo dõi đóng tiền theo tháng, theo khoá và theo buổi</small></h1>
+    <div class="actions">
+      <button class="btn" id="addStudent">+ Học viên</button>
+      <button class="btn primary" id="addPay">Ghi nhận đóng tiền</button>
+    </div>
+  </header>
+
+  <div class="bar">
+    <div class="monthnav" id="monthnav" aria-label="Chọn tháng">
+      <button id="prevM" aria-label="Trước">‹</button>
+      <strong id="mLabel"></strong>
+      <button id="nextM" aria-label="Sau">›</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="month" aria-selected="true">Theo tháng</button>
+      <button role="tab" data-tab="year" aria-selected="false">Cả năm</button>
+      <button role="tab" data-tab="stats" aria-selected="false">Thống kê</button>
+      <button role="tab" data-tab="remind" aria-selected="false">Nhắc nhở<span class="badge" id="rBadge" hidden></span></button>
+    </div>
+    <div class="spacer"></div>
+    <input class="search" id="q" type="search" placeholder="Tìm học viên…" aria-label="Tìm học viên">
+  </div>
+
+  <main id="view"></main>
+  <p class="syncnote" id="syncnote"></p>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Chi tiết học viên"></aside>
+
+<!-- student dialog -->
+<dialog id="dStudent">
+  <div class="dlg">
+    <h2 id="dsTitle">Thêm học viên</h2>
+    <div class="field"><label for="fName">Họ tên</label><input id="fName" autocomplete="off"></div>
+    <div class="two">
+      <div class="field"><label for="fPhone">SĐT / Zalo</label><input id="fPhone" inputmode="tel" autocomplete="off"></div>
+      <div class="field"><label for="fGroup">Lớp / nhóm</label><input id="fGroup" autocomplete="off" placeholder="VD: HSK1 tối"></div>
+    </div>
+    <div class="field kind"><span class="lbl">Hình thức học phí</span>
+      <div class="seg" id="fKind">
+        <button data-v="month" aria-pressed="true">Đóng theo tháng</button>
+        <button data-v="ck" aria-pressed="false">Khoá theo buổi</button>
+      </div>
+    </div>
+    <div id="fCourseBox" class="hide">
+      <div class="two">
+        <div class="field"><label for="fCTotal">Học phí cả khoá (đ)</label><input id="fCTotal" type="number" min="0" step="10000"></div>
+        <div class="field"><label for="fCSess">Tổng số buổi</label><input id="fCSess" type="number" min="1" step="1"></div>
+      </div>
+      <div class="two">
+        <div class="field" id="fCPreWrap"><label for="fCPre">Đã đóng trước (đ)</label><input id="fCPre" type="number" min="0" step="10000" placeholder="0"></div>
+        <div class="field"><label for="fCMode">Tiền góp mỗi tháng tính</label>
+          <select id="fCMode"><option value="plan">Theo kế hoạch (số buổi/tháng)</option><option value="actual">Theo số buổi thực học</option></select></div>
+      </div>
+    </div>
+    <div class="two">
+      <div class="field" id="fFeeWrap"><label for="fFee">Học phí / tháng (đ)</label><input id="fFee" type="number" min="0" step="10000"></div>
+      <div class="field"><label for="fSess">Số buổi / tháng</label><input id="fSess" type="number" min="1" step="1"></div>
+    </div>
+    <div class="note hide" id="fCInfo"></div>
+    <div class="field"><span class="lbl">Lịch học trong tuần</span>
+      <div class="days" id="fDays"></div>
+    </div>
+    <div class="two">
+      <div class="field"><label for="fStart" id="fStartLbl">Bắt đầu học từ</label><select id="fStart"></select></div>
+      <div class="field" id="fEndWrap"><label for="fEnd">Nghỉ từ sau tháng</label><select id="fEnd"></select></div>
+    </div>
+    <div class="field"><label for="fNote">Ghi chú</label><textarea id="fNote" rows="2"></textarea></div>
+    <div class="dlgfoot">
+      <button class="btn danger left" id="fDel" hidden>Xoá học viên</button>
+      <button class="btn" data-close>Huỷ</button>
+      <button class="btn primary" id="fSave">Lưu</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- payment dialog -->
+<dialog id="dPay">
+  <div class="dlg">
+    <h2>Ghi nhận đóng tiền</h2>
+    <div class="field"><label for="pSid">Học viên</label><select id="pSid"></select></div>
+    <div class="field" id="pTypeField"><span class="lbl">Hình thức</span>
+      <div class="seg" id="pType">
+        <button data-v="month" aria-pressed="true">Theo tháng</button>
+        <button data-v="course" aria-pressed="false">Trọn gói nhiều tháng</button>
+      </div>
+    </div>
+    <div class="two" id="pMonthRow">
+      <div class="field"><label for="pMonth" id="pMonthLbl">Cho tháng</label><select id="pMonth"></select></div>
+      <div class="field" id="pMonthsWrap" hidden><label for="pMonths">Số tháng</label><input id="pMonths" type="number" min="1" max="24" step="1" value="3"></div>
+    </div>
+    <div class="two">
+      <div class="field"><label for="pAmount">Số tiền (đ)</label><input id="pAmount" type="number" min="0" step="10000"></div>
+      <div class="field"><label for="pDate">Ngày đóng</label><input id="pDate" type="date"></div>
+    </div>
+    <div class="note" id="pInfo"></div>
+    <div class="field"><label for="pNote">Ghi chú</label><input id="pNote" autocomplete="off" placeholder="VD: chuyển khoản, giảm giá anh em…"></div>
+    <div class="dlgfoot">
+      <button class="btn" data-close>Huỷ</button>
+      <button class="btn primary" id="pSave">Lưu</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- attendance dialog -->
+<dialog id="dAtt">
+  <div class="dlg">
+    <h2 id="aTitle">Xác nhận buổi học</h2>
+    <p class="sub" id="aSub"></p>
+    <div class="field"><span class="lbl">Trạng thái</span>
+      <div class="stat4" id="aStat">
+        <button data-v="p" aria-pressed="true"><b>✓</b>Có mặt</button>
+        <button data-v="m" aria-pressed="false"><b>Bù</b>Học bù</button>
+        <button data-v="a" aria-pressed="false"><b>✕</b>Vắng</button>
+        <button data-v="e" aria-pressed="false"><b>P</b>Có phép</button>
+      </div>
+    </div>
+    <div class="field"><label for="aN" id="aNLbl">Số buổi trong ngày</label>
+      <div class="stepper">
+        <button id="aMinus" aria-label="Bớt nửa buổi">−</button>
+        <input id="aN" type="number" min="0.5" max="6" step="0.5" inputmode="decimal">
+        <button id="aPlus" aria-label="Thêm nửa buổi">+</button>
+        <div class="chips" id="aChips"></div>
+      </div>
+    </div>
+    <div class="field"><label for="aNote">Ghi chú</label><input id="aNote" autocomplete="off" placeholder="VD: học 2 ca, dạy thay, về sớm…"></div>
+    <div class="note" id="aPreview"></div>
+    <div class="dlgfoot">
+      <button class="btn danger left" id="aClear">Xoá đánh dấu</button>
+      <button class="btn" data-close>Huỷ</button>
+      <button class="btn primary" id="aSave">Xác nhận</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- reminder message dialog -->
+<dialog id="dMsg">
+  <div class="dlg">
+    <h2 id="mTitle">Tin nhắn nhắc học phí</h2>
+    <p class="sub">Sửa lại nếu cần, rồi sao chép để gửi qua Zalo / Messenger.</p>
+    <div class="field"><textarea id="mText" aria-label="Nội dung tin nhắn"></textarea></div>
+    <div class="dlgfoot">
+      <button class="btn" data-close>Đóng</button>
+      <button class="btn primary" id="mCopy">Sao chép</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" hidden>Hoàn tác</button></div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const VND=n=>new Intl.NumberFormat('vi-VN').format(Math.round(n||0))+'đ';
+const short=n=>{n=Math.round(n||0);if(n>=1e6)return (Math.round(n/1e5)/10).toString().replace('.',',')+'tr';if(n>=1000)return Math.round(n/1000)+'k';return n+'đ'};
+const fmtN=n=>String(Math.round((n||0)*100)/100).replace('.',',');
+const now=new Date();
+const TODAY=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+const CUR=TODAY.slice(0,7);
+const DEF_FEE=800000, DEF_SESS=8;
+const DOW=['CN','T2','T3','T4','T5','T6','T7'];
+const DOWFULL=['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+function addM(mk,n){let[y,m]=mk.split('-').map(Number);let t=y*12+(m-1)+n;return `${Math.floor(t/12)}-${pad(t%12+1)}`}
+function mDiff(a,b){const[y1,m1]=a.split('-').map(Number),[y2,m2]=b.split('-').map(Number);return (y2*12+m2)-(y1*12+m1)}
+const mLabel=mk=>{const[y,m]=mk.split('-');return `Tháng ${+m}/${y}`};
+const mLow=mk=>mLabel(mk).replace('Tháng','tháng');
+const mShort=mk=>{const[y,m]=mk.split('-');return `${+m}/${y}`};
+const dLabel=d=>{if(!d)return'';const[y,m,dd]=d.split('-');return `${+dd}/${+m}/${y}`};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+
+const S={students:{},payments:{},att:{}};
+let remindN=2;try{remindN=+localStorage.getItem('so-hoc-phi-nhac')||2}catch(e){}
+const ui={month:CUR,tab:'month',filter:'all',q:'',open:null,attMode:'detail',picked:new Set(),statMonth:CUR};
+
+/* ---------- storage: shared db when available, browser storage otherwise ---------- */
+const LKEY='so-hoc-phi-v1';
+let db=null;
+function loadLocal(){try{const raw=localStorage.getItem(LKEY);if(raw){const d=JSON.parse(raw);S.students=d.students||{};S.payments=d.payments||{};S.att=d.att||{}}}catch(e){}}
+function saveLocal(){if(db)return;try{localStorage.setItem(LKEY,JSON.stringify(S))}catch(e){}}
+function fail(e){console.error(e);const c=e&&e.code;toast(c==='quota_exceeded'?'Bộ nhớ đã đầy — xoá bớt dữ liệu cũ rồi thử lại.':'Chưa lưu được thay đổi. Kiểm tra kết nối rồi thử lại.')}
+const mapCol=c=>c==='attendance'?'att':c;
+const queues={};
+function write(col,id,data){ // data null = delete
+  if(data===null)delete S[mapCol(col)][id]; else S[mapCol(col)][id]=data;
+  if(!db){saveLocal();return Promise.resolve()}
+  const key=col+'/'+id; const prev=queues[key]||Promise.resolve();
+  const p=prev.catch(()=>{}).then(()=>{const ref=db.collection(col).doc(id);return data===null?ref.delete():ref.set(data)});
+  queues[key]=p; p.catch(fail); return p;
+}
+const attTimers={};
+function writeAtt(sid){clearTimeout(attTimers[sid]);attTimers[sid]=setTimeout(()=>{delete attTimers[sid];write('attendance',sid,{dates:{...(S.att[sid]||{})}})},600)}
+async function initDb(){
+  if(!(window.claude&&typeof window.claude.use==='function'))return setSync();
+  let d=null;try{d=await window.claude.use('db')}catch(e){d=null}
+  if(!d)return setSync();
+  db=d; const local=JSON.parse(JSON.stringify(S)); let first=true;
+  S.students={};S.payments={};S.att={};
+  db.collection('students').onSnapshot(snap=>{
+    const o={};snap.docs.forEach(x=>{if(x.exists)o[x.id]=x.data()});S.students=o;
+    if(first&&!snap.metadata.fromCache){first=false;
+      if(snap.empty&&Object.keys(local.students).length){
+        Object.entries(local.students).forEach(([k,v])=>write('students',k,v));
+        Object.entries(local.payments).forEach(([k,v])=>write('payments',k,v));
+        Object.entries(local.att).forEach(([k,v])=>write('attendance',k,{dates:v}));
+      }}
+    render();
+  },fail);
+  db.collection('payments').onSnapshot(snap=>{const o={};snap.docs.forEach(x=>{if(x.exists)o[x.id]=x.data()});S.payments=o;render()},fail);
+  db.collection('attendance').onSnapshot(snap=>{const o={};snap.docs.forEach(x=>{if(x.exists)o[x.id]={...((x.data()||{}).dates||{})}});
+    Object.keys(attTimers).forEach(k=>{if(S.att[k])o[k]=S.att[k]});S.att=o;render()},fail);
+  setSync();
+}
+function setSync(){$('#syncnote').textContent=db?'Dữ liệu được lưu trên trang này và đồng bộ giữa các thiết bị bạn mở.':'Dữ liệu đang lưu trong trình duyệt này.'}
+
+/* ---------- attendance helpers ---------- */
+const ATT={p:{t:'Có mặt',k:'✓'},m:{t:'Học bù',k:'Bù'},a:{t:'Vắng',k:'✕'},e:{t:'Có phép',k:'P'}};
+const rec=v=>!v?null:typeof v==='string'?{s:v,n:1,note:''}:{s:v.s,n:+v.n||1,note:v.note||''};
+function attStats(sid,mk){const d=S.att[sid]||{};const r={p:0,a:0,e:0,m:0};for(const[k,v]of Object.entries(d)){if(!k.startsWith(mk))continue;const x=rec(v);if(x&&r[x.s]!==undefined)r[x.s]+=x.n}r.learned=r.p+r.m;return r}
+function learnedRange(sid,from,toExcl){const d=S.att[sid]||{};let n=0;for(const[k,v]of Object.entries(d)){const m=k.slice(0,7);if(m>=from&&(!toExcl||m<toExcl)){const x=rec(v);if(x&&(x.s==='p'||x.s==='m'))n+=x.n}}return n}
+
+/* ---------- money logic ---------- */
+const stu=id=>S.students[id];
+const isCK=s=>!!(s&&s.course);
+const active=(s,mk)=>s&&mk>=(s.start||'0000-00')&&(!s.end||mk<=s.end);
+function cInfo(s){const c=s.course||{};const sessions=Math.max(1,+c.sessions||1);const total=+c.total||0;const per=Math.max(0.5,+s.sess||DEF_SESS);const start=s.start||CUR;const months=Math.ceil(sessions/per);
+  return {sessions,total,price:total/sessions,per,start,months,end:addM(start,months-1),mode:c.mode==='actual'?'actual':'plan'}}
+function cMonth(sid,mk){ // sessions billed before this month and in this month
+  const c=cInfo(stu(sid));if(mk<c.start)return{before:0,here:0,c};
+  if(c.mode==='plan'){const i=mDiff(c.start,mk);const before=Math.min(c.sessions,i*c.per);return{before,here:Math.max(0,Math.min(c.per,c.sessions-before)),c}}
+  const before=Math.min(c.sessions,learnedRange(sid,c.start,mk));
+  return{before,here:Math.max(0,Math.min(learnedRange(sid,mk,addM(mk,1)),c.sessions-before)),c};
+}
+const paidCK=sid=>Object.values(S.payments).reduce((t,p)=>t+(p.sid===sid&&p.type==='ck'?(+p.amount||0):0),0);
+function cSummary(sid){const c=cInfo(stu(sid));const paid=paidCK(sid);const learned=learnedRange(sid,c.start);const paidSess=c.price?paid/c.price:0;
+  return {...c,paid,learned,paidSess,balance:paidSess-learned,left:Math.max(0,c.sessions-learned),owedTotal:Math.max(0,c.total-paid)}}
+function alloc(sid,mk){let sum=0,course=false;
+  for(const p of Object.values(S.payments)){if(p.sid!==sid)continue;
+    if(p.type==='month'&&p.month===mk)sum+=+p.amount||0;
+    else if(p.type==='course'){const k=mDiff(p.month,mk);if(k>=0&&k<(+p.months||1)){sum+=(+p.amount||0)/(+p.months||1);course=true}}}
+  return {sum,course}}
+function status(sid,mk){
+  const s=stu(sid);let due,paid,course=false,ck=false,sess=0;
+  if(isCK(s)){const{before,here,c}=cMonth(sid,mk);due=here*c.price;sess=here;paid=Math.max(0,Math.min(due,paidCK(sid)-before*c.price));ck=true}
+  else{due=active(s,mk)?(+s.fee||0):0;const a=alloc(sid,mk);paid=a.sum;course=a.course}
+  let st;if(due<0.5&&paid<0.5)st='none';else if(paid>=due-0.5)st='paid';else if(paid>0.5)st='partial';else st=mk>CUR?'upcoming':'owed';
+  return {due,paid,course,ck,sess,owe:Math.max(0,due-paid),st};
+}
+const ST_TXT={paid:'Đã đóng',partial:'Đóng thiếu',owed:'Chưa đóng',upcoming:'Chưa tới',none:'Không học'};
+function nextCKDue(sid){ // first month still owing money in a per-session course
+  const c=cInfo(stu(sid));for(let i=0;i<60;i++){const mk=addM(c.start,i);const r=status(sid,mk);if(r.owe>0.5)return{mk,owe:r.owe,sess:r.owe/c.price};if(c.mode==='plan'&&i>=c.months)break;if(c.mode==='actual'&&mk>=CUR)break}
+  return null}
+function payDesc(p){
+  if(p.type==='ck'){const s=stu(p.sid);const c=s&&isCK(s)?cInfo(s):null;return{t:'Góp học phí khoá',sub:c&&c.price?`= ${fmtN(Math.round((+p.amount||0)/c.price*10)/10)} buổi`:''}}
+  if(p.type==='course')return{t:`Trọn gói ${p.months} tháng (${mShort(p.month)} – ${mShort(addM(p.month,(+p.months||1)-1))})`,sub:`≈ ${VND((+p.amount||0)/(+p.months||1))}/tháng`};
+  return{t:`Học phí ${mLow(p.month)}`,sub:''}}
+
+/* ---------- reminders ---------- */
+const LV={red:0,amber:1,blue:2};
+function reminders(){
+  const out=[];
+  for(const[id,s]of Object.entries(S.students)){
+    const start=s.start||CUR;const past=[];let pastAmt=0;
+    for(let mk=start,i=0;mk<CUR&&i<48;mk=addM(mk,1),i++){const r=status(id,mk);if(r.owe>0.5){past.push(mk);pastAmt+=r.owe}}
+    if(pastAmt>0)out.push({id,lv:'red',kind:'old',title:'Nợ học phí tháng trước',text:`Còn nợ <b>${VND(pastAmt)}</b> (${past.map(mShort).join(', ')})`,amount:pastAmt,month:past[0],months:past});
+    const r=status(id,CUR);
+    if(r.owe>0.5)out.push({id,lv:'amber',kind:'cur',title:`Chưa đóng đủ ${mLow(CUR)}`,text:`Còn <b>${VND(r.owe)}</b> / ${VND(r.due)}${r.ck?` (${fmtN(r.sess)} buổi)`:''}`,amount:r.owe,month:CUR,due:r.due});
+    if(isCK(s)){
+      const cs=cSummary(id);
+      if(cs.learned<cs.sessions&&cs.learned>0||cs.paid>0){
+        if(cs.balance<-0.01&&cs.learned<=cs.sessions)out.push({id,lv:'red',kind:'over',title:'Học vượt số buổi đã đóng',text:`Vượt <b>${fmtN(-cs.balance)} buổi</b> = ${VND(-cs.balance*cs.price)}`,amount:-cs.balance*cs.price,cs});
+        else if(cs.balance<=remindN&&cs.owedTotal>0.5&&cs.learned<cs.sessions){const nx=nextCKDue(id);out.push({id,lv:'amber',kind:'low',title:'Sắp hết buổi đã đóng',text:`Còn <b>${fmtN(Math.max(0,cs.balance))} buổi</b> đã trả${nx?` · đợt góp tới ${VND(nx.owe)}`:''}`,amount:nx?nx.owe:cs.owedTotal,month:nx?nx.mk:CUR,cs,nx})}
+      }
+      if(cs.left>0&&cs.left<=remindN)out.push({id,lv:'blue',kind:'end',title:'Sắp kết thúc khoá',text:`Còn <b>${fmtN(cs.left)} buổi</b> / ${cs.sessions} buổi`,cs});
+      else if(cs.left<=0&&cs.learned>0&&cs.end>=addM(CUR,-1))out.push({id,lv:'blue',kind:'done',title:'Đã học hết khoá',text:`Đã học ${fmtN(cs.learned)}/${cs.sessions} buổi — hỏi học viên có học tiếp không`,cs});
+    }else if(active(s,CUR)){
+      const a=attStats(id,CUR);const sess=+s.sess||DEF_SESS;const left=sess-a.learned;const nx=addM(CUR,1);
+      if(left<=remindN&&active(s,nx)){const r2=status(id,nx);if(r2.owe>0.5)out.push({id,lv:'amber',kind:'next',title:left<=0?'Đã học hết buổi tháng này':'Sắp hết buổi tháng này',text:`Đã học ${fmtN(a.learned)}/${sess} buổi · <b>${mLow(nx)}</b> chưa đóng`,amount:r2.owe,month:nx,learned:a.learned,sess})}
+    }
+  }
+  return out.sort((a,b)=>LV[a.lv]-LV[b.lv]||(stu(a.id).name||'').localeCompare(stu(b.id).name||'','vi'));
+}
+function msgFor(it){
+  const s=stu(it.id),n=s.name;
+  switch(it.kind){
+    case'old':return `Chào ${n}, cô nhắc em học phí ${it.months.length>1?'các tháng '+it.months.map(mShort).join(', '):'tháng '+mShort(it.months[0])} còn thiếu ${VND(it.amount)}. Em sắp xếp đóng giúp cô nhé. Cảm ơn em!`;
+    case'cur':return `Chào ${n}, cô nhắc em học phí ${mLow(it.month)} là ${VND(it.due)}, em còn cần đóng ${VND(it.amount)}. Cảm ơn em!`;
+    case'next':return `Chào ${n}, tháng này em đã học ${fmtN(it.learned)}/${it.sess} buổi. Học phí ${mLow(it.month)} là ${VND(it.amount)}, em đóng trước buổi học tới giúp cô nhé. Cảm ơn em!`;
+    case'low':return `Chào ${n}, khoá học của em còn ${fmtN(Math.max(0,it.cs.balance))} buổi đã đóng tiền (đã học ${fmtN(it.cs.learned)}/${it.cs.sessions} buổi). Đợt góp tiếp theo là ${VND(it.amount)}${it.nx?` (${fmtN(it.nx.sess)} buổi)`:''}. Em đóng giúp cô nhé. Cảm ơn em!`;
+    case'over':return `Chào ${n}, em đã học vượt ${fmtN(-it.cs.balance)} buổi so với số tiền đã đóng, tương ứng ${VND(it.amount)}. Em đóng bổ sung giúp cô nhé. Cảm ơn em!`;
+    case'end':return `Chào ${n}, khoá học của em còn ${fmtN(it.cs.left)} buổi nữa là kết thúc. Em có muốn đăng ký học tiếp khoá sau không?`;
+    default:return `Chào ${n}, em đã học xong khoá ${it.cs.sessions} buổi. Em có muốn đăng ký học tiếp khoá sau không?`;
+  }
+}
+
+/* ---------- render ---------- */
+function render(){
+  const yearish=ui.tab==='year'||ui.tab==='stats';
+  $('#mLabel').textContent=yearish?`Năm ${ui.month.slice(0,4)}`:mLabel(ui.month);
+  $('#monthnav').classList.toggle('hide',ui.tab==='remind');
+  $$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===ui.tab));
+  const rs=reminders();const urgent=rs.filter(x=>x.lv!=='blue').length;
+  const bd=$('#rBadge');bd.hidden=!urgent;bd.textContent=urgent;
+  ({month:renderMonth,year:renderYear,stats:renderStats,remind:()=>renderRemind(rs)})[ui.tab](rs);
+  if(ui.open)renderDrawer();
+}
+function sortedStudents(){
+  const q=ui.q.trim().toLowerCase();
+  return Object.entries(S.students).filter(([,s])=>!q||(s.name||'').toLowerCase().includes(q)||(s.group||'').toLowerCase().includes(q)||(s.phone||'').includes(q))
+    .sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||'','vi'));
+}
+const emptyAll=`<div class="list"><div class="empty"><p>Chưa có học viên nào. Thêm học viên đầu tiên để bắt đầu theo dõi học phí.</p><button class="btn primary" data-act="add">+ Thêm học viên</button></div></div>`;
+function renderMonth(rs){
+  const mk=ui.month;if(!Object.keys(S.students).length){$('#view').innerHTML=emptyAll;return}
+  const rows=sortedStudents().map(([id])=>({id,s:stu(id),r:status(id,mk)})).filter(x=>x.r.st!=='none'||x.r.paid>0);
+  const tot={due:0,paid:0,owe:0,cnt:0};rows.forEach(x=>{tot.due+=x.r.due;tot.paid+=x.r.paid;tot.owe+=x.r.owe;if(x.r.owe>0.5)tot.cnt++});
+  const f=ui.filter;
+  const shown=rows.filter(x=>f==='all'||(f==='owe'&&x.r.owe>0.5)||(f==='paid'&&x.r.st==='paid')||(f==='course'&&(x.r.course||x.r.ck)));
+  const chip=(v,t)=>`<button class="chip" data-filter="${v}" aria-pressed="${f===v}">${t}</button>`;
+  const urgent=rs.filter(x=>x.lv!=='blue').length;
+  let h=urgent?`<button class="banner" data-tabgo="remind"><span>Có ${urgent} việc cần nhắc học viên (nợ học phí, sắp hết buổi…)</span>Xem ›</button>`:'';
+  h+=`<section class="summary">
+    <div><span>Phải thu ${mLow(mk)}</span><b>${VND(tot.due)}</b></div>
+    <div class="ok"><span>Đã thu cho tháng này</span><b>${VND(tot.paid)}</b></div>
+    <div class="owe"><span>Còn nợ</span><b>${VND(tot.owe)}</b></div>
+    <div><span>Học viên chưa đóng đủ</span><b>${tot.cnt} / ${rows.length}</b></div></section>
+    <div class="chips">${chip('all','Tất cả')}${chip('owe','Còn nợ')}${chip('paid','Đã đóng')}${chip('course','Theo khoá')}</div>`;
+  if(!shown.length)h+=`<div class="list"><div class="empty"><p>Không có học viên nào khớp trong ${mLow(mk)}.</p></div></div>`;
+  else h+=`<div class="list">`+shown.map(({id,s,r})=>{
+    const a=attStats(id,mk);const sess=+s.sess||DEF_SESS;const pct=Math.min(100,a.learned/sess*100);
+    const days=(s.days||[]).map(d=>DOW[d]).join(', ');
+    let extra='';if(r.ck){const cs=cSummary(id);extra=`<br><span class="sub">Khoá: ${fmtN(cs.learned)}/${cs.sessions} buổi · đã trả ${fmtN(cs.paidSess)} buổi</span>`}
+    return `<div class="row" data-open="${id}" tabindex="0" role="button" aria-label="Mở ${esc(s.name)}">
+      <div><div class="name">${esc(s.name)}${r.ck?'<span class="tag ck">Khoá buổi</span>':r.course?'<span class="tag">Trọn gói</span>':''}</div><div class="sub">${esc([s.group,days].filter(Boolean).join(' · ')||'—')}</div></div>
+      <div class="sess">Đã học <b>${fmtN(a.learned)}/${r.ck?fmtN(r.sess||sess):sess}</b> buổi${a.a?` · vắng ${fmtN(a.a)}`:''}<div class="meter"><i style="width:${pct}%"></i></div>${extra}</div>
+      <div class="money">Phải đóng <b>${VND(r.due)}</b><br>Đã đóng <b>${VND(r.paid)}</b>${r.owe>0.5?` · còn <b style="color:var(--red)">${VND(r.owe)}</b>`:''}</div>
+      <div class="rowend"><span class="st ${r.st}">${ST_TXT[r.st]}</span>${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}" title="Ghi nhận đã đóng ${VND(r.owe)} cho ${mLow(mk)}">Đã đóng</button>`:''}</div>
+    </div>`}).join('')+`</div>`;
+  $('#view').innerHTML=h;
+}
+function renderYear(){
+  const y=ui.month.slice(0,4);const ms=[...Array(12)].map((_,i)=>`${y}-${pad(i+1)}`);const all=sortedStudents();
+  if(!all.length){$('#view').innerHTML=emptyAll;return}
+  const colTot=ms.map(()=>({paid:0,owe:0}));
+  const body=all.map(([id,s])=>`<tr><th class="nm" scope="row"><button class="btn sm" style="border:0;padding:0;background:none;font-weight:600;text-align:left" data-open="${id}">${esc(s.name)}</button></th>${ms.map((mk,i)=>{
+    const r=status(id,mk);colTot[i].paid+=r.paid;if(mk<=CUR)colTot[i].owe+=r.owe;
+    const t=r.st==='paid'?(r.course?'Gói':'✓'):r.st==='partial'?short(r.owe):r.st==='owed'?'Nợ':r.st==='upcoming'?(r.ck?short(r.owe):'·'):'';
+    return `<td class="${mk===CUR?'cur':''}"><button class="${r.st}" data-open="${id}" data-m="${mk}" ${r.st==='none'?'tabindex="-1"':''} title="${esc(s.name)} — ${mLabel(mk)}: ${ST_TXT[r.st]}${r.owe>0.5?' (còn '+VND(r.owe)+')':''}">${t}</button></td>`}).join('')}</tr>`).join('');
+  $('#view').innerHTML=`<div class="yearwrap"><table class="year"><thead><tr><th class="nm">Học viên</th>${ms.map(mk=>`<th scope="col">T${+mk.slice(5)}</th>`).join('')}</tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr><th class="nm">Đã thu</th>${colTot.map(c=>`<td style="color:var(--jade)">${c.paid?short(c.paid):''}</td>`).join('')}</tr>
+    <tr><th class="nm">Còn nợ</th>${colTot.map(c=>`<td style="color:var(--red)">${c.owe>0.5?short(c.owe):''}</td>`).join('')}</tr></tfoot></table></div>
+    <div class="legend"><span style="--c:var(--jade-soft)">Đã đóng</span><span style="--c:var(--amber-soft)">Đóng thiếu (số còn thiếu)</span><span style="--c:var(--red-soft)">Chưa đóng</span><span style="--c:var(--line)">Chưa tới (khoá buổi: số cần góp)</span></div>`;
+}
+function monthStats(mk){
+  const o={cash:0,n:0,due:0,paid:0,owe:0,learned:0,students:0};
+  for(const p of Object.values(S.payments))if((p.date||'').startsWith(mk)){o.cash+=+p.amount||0;o.n++}
+  for(const id of Object.keys(S.students)){const r=status(id,mk);if(r.due>0.5){o.students++;o.due+=r.due;o.paid+=r.paid;if(mk<=CUR)o.owe+=r.owe}o.learned+=attStats(id,mk).learned}
+  return o}
+function renderStats(){
+  const y=ui.month.slice(0,4);const ms=[...Array(12)].map((_,i)=>`${y}-${pad(i+1)}`);
+  if(!ui.statMonth.startsWith(y))ui.statMonth=ms.includes(CUR)?CUR:ms[0];
+  const st=ms.map(monthStats);const T=st.reduce((a,o)=>{for(const k in o)a[k]=(a[k]||0)+o[k];return a},{});
+  const elapsed=ms.filter(m=>m<=CUR).length||12;const best=st.reduce((b,o,i)=>o.cash>st[b].cash?i:b,0);
+  // chart
+  const W=720,H=240,top=22,bot=26,slot=W/12,bw=slot*.52;const max=Math.max(1,...st.map(o=>Math.max(o.cash,o.due)));const sc=v=>(H-top-bot)*v/max;
+  const bars=st.map((o,i)=>{const x=i*slot;const bh=sc(o.cash);const mk=ms[i];
+    return `<g data-sm="${mk}" tabindex="0" role="button" aria-label="${mLabel(mk)}: thực thu ${VND(o.cash)}, phải thu ${VND(o.due)}" class="${mk===ui.statMonth?'sel':''}">
+      <rect class="slot" x="${x+2}" y="2" width="${slot-4}" height="${H-4}" rx="6"/>
+      ${o.cash?`<rect class="bar" x="${x+(slot-bw)/2}" y="${H-bot-bh}" width="${bw}" height="${Math.max(1,bh)}" rx="3"/><text class="val" x="${x+slot/2}" y="${H-bot-bh-6}" text-anchor="middle">${short(o.cash)}</text>`:''}
+      ${o.due?`<line class="due" x1="${x+slot*.14}" x2="${x+slot*.86}" y1="${H-bot-sc(o.due)}" y2="${H-bot-sc(o.due)}"/>`:''}
+      <text x="${x+slot/2}" y="${H-8}" text-anchor="middle">T${i+1}</text></g>`}).join('');
+  const sel=ui.statMonth;const selPays=Object.entries(S.payments).filter(([,p])=>(p.date||'').startsWith(sel)).sort((a,b)=>(a[1].date||'').localeCompare(b[1].date||''));
+  const byType={month:0,course:0,ck:0};selPays.forEach(([,p])=>byType[p.type]=(byType[p.type]||0)+(+p.amount||0));
+  $('#view').innerHTML=`
+    <section class="summary">
+      <div class="ok"><span>Tổng thực thu năm ${y}</span><b>${VND(T.cash)}</b></div>
+      <div><span>Trung bình / tháng</span><b>${VND(T.cash/elapsed)}</b></div>
+      <div><span>Tháng thu cao nhất</span><b>${st[best].cash?`T${best+1} · ${short(st[best].cash)}`:'—'}</b></div>
+      <div class="owe"><span>Còn nợ trong năm</span><b>${VND(T.owe)}</b></div></section>
+    <div class="chartbox"><svg class="chart" viewBox="0 0 ${W} ${H}" role="group" aria-label="Biểu đồ tiền thu theo tháng">${bars}</svg>
+      <div class="legend" style="margin:4px 6px 4px"><span style="--c:var(--jade)">Thực thu (theo ngày đóng)</span><span style="--c:var(--ink)">Nét đứt: phải thu tháng đó</span></div></div>
+    <p class="stnote">Thực thu = tiền nhận được trong tháng (theo ngày đóng). Phải thu = học phí của các học viên đang học tháng đó; đã thu cho tháng = phần tiền đã đóng dành cho tháng đó (kể cả đóng trước).</p>
+    <div class="stwrap"><table class="st"><thead><tr><th>Tháng</th><th>Thực thu</th><th>Số lần đóng</th><th>Phải thu</th><th>Đã thu cho tháng</th><th>Còn nợ</th><th>Học viên</th><th>Buổi đã dạy</th></tr></thead>
+      <tbody>${st.map((o,i)=>`<tr data-sm="${ms[i]}" class="${ms[i]===sel?'sel':''}"><td>${mLabel(ms[i])}</td><td class="cash">${o.cash?VND(o.cash):'—'}</td><td>${o.n||'—'}</td><td>${o.due?VND(o.due):'—'}</td><td>${o.paid?VND(o.paid):'—'}</td><td class="owe">${o.owe>0.5?VND(o.owe):'—'}</td><td>${o.students||'—'}</td><td>${o.learned?fmtN(o.learned):'—'}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Cả năm</td><td class="cash">${VND(T.cash)}</td><td>${T.n}</td><td>${VND(T.due)}</td><td>${VND(T.paid)}</td><td class="owe">${VND(T.owe)}</td><td></td><td>${fmtN(T.learned)}</td></tr></tfoot></table></div>
+    <div class="card"><h3>Các khoản thu ${mLow(sel)}<span class="spacer"></span><b>${VND(st[ms.indexOf(sel)].cash)}</b></h3>
+      ${selPays.length?`<p class="hint" style="margin:0 0 6px">Theo tháng ${VND(byType.month)} · Trọn gói ${VND(byType.course)} · Góp khoá buổi ${VND(byType.ck)}</p><ul class="pays">${selPays.map(([pid,p])=>{const d=payDesc(p);const s=stu(p.sid);
+        return `<li><span class="d">${dLabel(p.date)}</span><span class="t"><button class="who" style="border:0;background:none;padding:0;font-weight:600" data-open="${p.sid}">${esc(s?s.name:'(đã xoá)')}</button><small>${[d.t,d.sub,esc(p.note)].filter(Boolean).join(' · ')}</small></span><b>${VND(p.amount)}</b></li>`}).join('')}</ul>`
+      :`<p class="hint" style="margin:0">Chưa có khoản nào được đóng trong ${mLow(sel)}.</p>`}</div>`;
+}
+function renderRemind(rs){
+  const opt=[1,2,3,4].map(n=>`<option value="${n}" ${n===remindN?'selected':''}>${n} buổi</option>`).join('');
+  let h=`<div class="rhead"><span>Tính đến hôm nay, ${dLabel(TODAY)}. Nhắc khi học viên còn ≤</span><select id="rN" aria-label="Ngưỡng nhắc">${opt}</select></div>`;
+  if(!rs.length){$('#view').innerHTML=h+`<div class="list"><div class="empty"><p>Không có gì cần nhắc. Mọi học viên đã đóng đủ và còn buổi học.</p></div></div>`;return}
+  const groups=[['red','Nợ học phí'],['amber','Cần đóng sớm'],['blue','Sắp kết thúc khoá']];
+  for(const[lv,t]of groups){const items=rs.map((x,i)=>[x,i]).filter(([x])=>x.lv===lv);if(!items.length)continue;
+    h+=`<div class="rgroup">${t} · ${items.length}</div><div class="rlist">`+items.map(([x,i])=>{const s=stu(x.id);
+      return `<div class="ritem ${x.lv}"><div><button class="who" data-open="${x.id}">${esc(s.name)}</button>${s.phone?` <span class="sub" style="font-size:13px;color:var(--muted)">${esc(s.phone)}</span>`:''}
+        <div class="what">${x.title}: ${x.text}</div></div>
+        <div class="acts"><button class="btn sm" data-msg="${i}">Soạn tin nhắc</button>${x.amount>0.5?`<button class="btn sm pay" data-rpay="${i}">Ghi nhận đóng</button>`:''}</div></div>`}).join('')+`</div>`}
+  $('#view').innerHTML=h;
+  $('#rN').onchange=e=>{remindN=+e.target.value;try{localStorage.setItem('so-hoc-phi-nhac',remindN)}catch(_){}render()};
+  lastRs=rs;
+}
+let lastRs=[];
+
+function courseCard(id){
+  const cs=cSummary(id);const W=v=>Math.max(0,v)/cs.sessions*100;
+  const A=Math.min(cs.learned,cs.paidSess),B=Math.max(0,Math.min(cs.sessions,cs.learned)-cs.paidSess),C=Math.max(0,Math.min(cs.sessions,cs.paidSess)-cs.learned);
+  const last=cs.mode==='plan'?cs.end:(addM(CUR,1)>cs.end?addM(CUR,1):cs.end);
+  let rows='';for(let mk=cs.start,i=0;mk<=last&&i<36;mk=addM(mk,1),i++){const r=status(id,mk);const learned=attStats(id,mk).learned;
+    rows+=`<tr class="${mk===ui.month?'cur':''}"><td><button data-m="${mk}">${mShort(mk)}</button></td><td class="r">${cs.mode==='plan'?fmtN(r.sess):'—'}</td><td class="r">${learned?fmtN(learned):'—'}</td><td class="r">${r.due?VND(r.due):'—'}</td><td class="r"><span class="st ${r.st}">${r.st==='partial'?'Thiếu '+short(r.owe):ST_TXT[r.st]}</span></td></tr>`}
+  const bal=cs.balance;
+  return `<div class="card"><h3>Khoá ${cs.sessions} buổi · ${VND(cs.total)}<span class="spacer"></span><span class="sub" style="font-weight:400;font-size:13px;color:var(--muted)">${VND(cs.price)}/buổi</span></h3>
+    <div class="big">${fmtN(cs.learned)}<small> / ${cs.sessions} buổi đã học · còn ${fmtN(cs.left)} buổi</small></div>
+    <div class="prog" role="img" aria-label="Đã học và đã trả ${fmtN(A)} buổi, học chưa trả ${fmtN(B)} buổi, đã trả chưa học ${fmtN(C)} buổi"><i class="a" style="width:${W(A)}%"></i><i class="b" style="width:${W(B)}%"></i><i class="c" style="width:${W(C)}%"></i></div>
+    <div class="plegend"><span style="--c:var(--jade)">Đã học, đã trả</span><span style="--c:var(--red)">Đã học, chưa trả</span><span style="--c:var(--blue)">Đã trả, chưa học</span><span style="--c:var(--line)">Chưa học, chưa trả</span></div>
+    <div class="kv"><span>Đã đóng</span><b class="ok">${VND(cs.paid)} (${fmtN(Math.round(cs.paidSess*10)/10)} buổi)</b>
+      <span>Còn phải đóng cả khoá</span><b class="${cs.owedTotal>0.5?'owe':''}">${VND(cs.owedTotal)}</b>
+      <span>${bal>=0?'Buổi đã trả chưa học':'Học vượt số buổi đã trả'}</span><b class="${bal<0?'owe':''}">${fmtN(Math.abs(Math.round(bal*10)/10))} buổi</b>
+      <span>Tiền góp mỗi tháng tính</span><b>${cs.mode==='plan'?`theo kế hoạch ${fmtN(cs.per)} buổi`:'theo buổi thực học'}</b></div>
+    <table class="plan"><thead><tr><th>Tháng</th><th class="r">Kế hoạch</th><th class="r">Thực học</th><th class="r">Cần góp</th><th class="r">Trạng thái</th></tr></thead><tbody>${rows}</tbody></table>
+  </div>`;
+}
+function renderDrawer(){
+  const id=ui.open,s=stu(id);if(!s){closeDrawer();return}
+  const mk=ui.month,y=mk.slice(0,4);const r=status(id,mk);const a=attStats(id,mk);const sess=+s.sess||DEF_SESS;const ck=isCK(s);
+  const days=(s.days||[]);
+  const[yy,mm]=mk.split('-').map(Number);const nd=new Date(yy,mm,0).getDate();const lead=(new Date(yy,mm-1,1).getDay()+6)%7;const marks=S.att[id]||{};
+  for(const k of [...ui.picked])if(!k.startsWith(mk))ui.picked.delete(k);
+  const multi=ui.attMode==='multi';
+  let cal=['T2','T3','T4','T5','T6','T7','CN'].map(d=>`<div class="dow">${d}</div>`).join('')+'<div class="pad"></div>'.repeat(lead);let planned=0;
+  for(let d=1;d<=nd;d++){const key=`${mk}-${pad(d)}`;const sch=days.includes(new Date(yy,mm-1,d).getDay());if(sch)planned++;const v=rec(marks[key]);const pk=multi&&ui.picked.has(key);
+    const lbl=`Ngày ${d}${v?': '+ATT[v.s].t+' '+fmtN(v.n)+' buổi'+(v.note?', '+v.note:''):sch?': có lịch học':''}${pk?', đã chọn':''}`;
+    cal+=`<button class="day ${v?v.s:''} ${sch&&!v?'sched':''} ${key===TODAY?'today':''} ${pk?'picked':''}" data-day="${key}" aria-label="${esc(lbl)}" ${multi?`aria-pressed="${pk}"`:''} title="${esc(lbl)}"><span class="n">${d}</span>${v?`<span class="mk">${ATT[v.s].k}${v.n!==1?' ×'+fmtN(v.n):''}</span>`:''}${v&&v.note?'<span class="nt"></span>':''}</button>`}
+  const amode=(v,t)=>`<button data-amode="${v}" aria-pressed="${ui.attMode===v}">${t}</button>`;
+  const HINT={detail:'Chạm vào một ngày để chọn trạng thái và số buổi (0,5 · 1 · 2 buổi…).',quick:'Chạm 1 lần = có mặt 1 buổi. Chạm lại để bỏ.',multi:'Chạm để chọn nhiều ngày, rồi xác nhận một lần cho tất cả.'};
+  const multibar=multi?`<div class="multibar"><b>Đã chọn ${ui.picked.size} ngày</b><button class="btn sm" id="pickSched">Chọn ngày có lịch</button><button class="btn sm" id="pickClear" ${ui.picked.size?'':'disabled'}>Bỏ chọn</button><button class="btn sm primary" id="pickGo" ${ui.picked.size?'':'disabled'}>Xác nhận ${ui.picked.size||''} ngày</button></div>`:'';
+  const strip=[...Array(12)].map((_,i)=>{const m=`${y}-${pad(i+1)}`;const q=status(id,m);return `<button class="${q.st} ${m===mk?'sel':''}" data-m="${m}" title="${mLabel(m)}: ${ST_TXT[q.st]}">${i+1}</button>`}).join('');
+  const pays=Object.entries(S.payments).filter(([,p])=>p.sid===id).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));
+  const payList=pays.length?`<ul class="pays">${pays.map(([pid,p])=>{const d=payDesc(p);
+    return `<li><span class="d">${dLabel(p.date)}</span><span class="t">${d.t}<small>${[d.sub,esc(p.note)].filter(Boolean).join(' · ')}</small></span><b>${VND(p.amount)}</b><button class="del" data-delpay="${pid}" aria-label="Xoá khoản này">×</button></li>`}).join('')}</ul>`
+    :`<p class="hint" style="margin:0">Chưa có khoản đóng nào.</p>`;
+  const target=ck?fmtN(r.sess||sess):sess;
+  $('#drawer').innerHTML=`
+    <div class="dhead"><div style="flex:1;min-width:0"><h2>${esc(s.name)}</h2>
+      <div class="sub">${esc([s.group,s.phone,days.length?'Lịch: '+days.map(d=>DOW[d]).join(', '):'',ck?`Khoá ${s.course.sessions} buổi · ${sess} buổi/tháng`:VND(s.fee)+'/tháng · '+sess+' buổi'].filter(Boolean).join(' · '))}</div>
+      ${s.note?`<div class="sub" style="margin-top:2px">${esc(s.note)}</div>`:''}</div>
+      <button class="btn sm" data-edit="${id}">Sửa</button><button class="x" id="closeD" aria-label="Đóng">×</button></div>
+    ${ck?courseCard(id):`<div class="card"><h3>Học phí năm ${y}</h3><div class="mstrip">${strip}</div></div>`}
+    <div class="card"><h3><button class="x" data-mv="-1" aria-label="Tháng trước" style="font-size:20px">‹</button>${mLabel(mk)}<button class="x" data-mv="1" aria-label="Tháng sau" style="font-size:20px">›</button><span class="spacer"></span><span class="st ${r.st}">${ST_TXT[r.st]}</span></h3>
+      <div class="attbar"><div class="seg sm" role="group" aria-label="Cách đánh dấu">${amode('detail','Chọn từng ngày')}${amode('quick','Tích nhanh')}${amode('multi','Chọn nhiều ngày')}</div></div>
+      <div class="cal">${cal}</div>${multibar}
+      <div class="calstats"><span>Đã học <b>${fmtN(a.learned)}/${target}</b></span><span>Có mặt <b>${fmtN(a.p)}</b></span>${a.m?`<span>Học bù <b>${fmtN(a.m)}</b></span>`:''}<span>Vắng <b>${fmtN(a.a)}</b></span><span>Có phép <b>${fmtN(a.e)}</b></span>${ck?'':`<span>Còn lại <b>${fmtN(Math.max(0,sess-a.learned))}</b> buổi</span>`}${days.length?`<span>Lịch tháng này: ${planned} buổi</span>`:''}</div>
+      <div class="legend cal-lg"><span style="--c:var(--jade)">✓ Có mặt</span><span style="--c:var(--red)">✕ Vắng</span><span style="--c:var(--amber)">P Có phép</span><span style="--c:var(--blue)">Bù Học bù</span></div>
+      <p class="hint">${HINT[ui.attMode]} Ô viền nét đứt là ngày có lịch học; chấm nhỏ dưới số là ngày có ghi chú.</p>
+    </div>
+    <div class="card"><h3>Tiền ${mLow(mk)}<span class="spacer"></span>${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}">Đã đóng ${short(r.owe)}</button>`:''}</h3>
+      <div class="kv"><span>Phải đóng${ck?` (${fmtN(r.sess)} buổi)`:''}</span><b>${VND(r.due)}</b><span>Đã đóng${r.course?' (gồm phần chia từ gói)':ck?' (trừ từ tiền đã góp)':''}</span><b class="ok">${VND(r.paid)}</b><span>Còn nợ</span><b class="${r.owe>0.5?'owe':''}">${VND(r.owe)}</b></div>
+    </div>
+    <div class="card"><h3>Lịch sử đóng tiền<span class="spacer"></span><button class="btn sm primary" data-payfor="${id}">+ Ghi nhận</button></h3>${payList}</div>`;
+}
+function openDrawer(id){if(ui.open!==id)ui.picked.clear();ui.open=id;renderDrawer();$('#drawer').classList.add('on');$('#scrim').classList.add('on');setTimeout(()=>{const c=$('#closeD');c&&c.focus()},50)}
+function closeDrawer(){const was=ui.open;ui.open=null;$('#drawer').classList.remove('on');$('#scrim').classList.remove('on');const el=was&&document.querySelector(`#view [data-open="${was}"]`);el&&el.focus()}
+
+/* ---------- toast ---------- */
+let tt;function toast(msg,undo){$('#toastMsg').textContent=msg;const u=$('#toastUndo');u.hidden=!undo;u.onclick=()=>{undo();$('#toast').hidden=true};$('#toast').hidden=false;clearTimeout(tt);tt=setTimeout(()=>$('#toast').hidden=true,undo?6000:3500)}
+
+/* ---------- month selects ---------- */
+function fillMonths(sel,withEmpty,emptyText){
+  const y=+CUR.slice(0,4);let h=withEmpty?`<option value="">${emptyText}</option>`:'';
+  for(let yy=y-2;yy<=y+2;yy++){h+=`<optgroup label="${yy}">`;for(let m=1;m<=12;m++)h+=`<option value="${yy}-${pad(m)}">${m}/${yy}</option>`;h+='</optgroup>'}
+  sel.innerHTML=h;
+}
+fillMonths($('#fStart'));fillMonths($('#fEnd'),true,'Vẫn đang học');fillMonths($('#pMonth'));
+$('#fDays').innerHTML=[1,2,3,4,5,6,0].map(d=>`<label><input type="checkbox" value="${d}"><span>${DOW[d]}</span></label>`).join('');
+
+/* ---------- student dialog ---------- */
+let editing=null,fKind='month';
+function setKind(k){fKind=k;$$('#fKind button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===k));
+  $('#fCourseBox').classList.toggle('hide',k!=='ck');$('#fCInfo').classList.toggle('hide',k!=='ck');$('#fFeeWrap').classList.toggle('hide',k==='ck');$('#fEndWrap').classList.toggle('hide',k==='ck');
+  $('#fStartLbl').textContent=k==='ck'?'Khoá bắt đầu tháng':'Bắt đầu học từ';fInfo()}
+function fInfo(){if(fKind!=='ck')return;const total=+$('#fCTotal').value||0,ss=+$('#fCSess').value||0,per=+$('#fSess').value||0,pre=+$('#fCPre').value||0;
+  if(!total||!ss||!per){$('#fCInfo').textContent='Nhập học phí cả khoá, tổng số buổi và số buổi mỗi tháng.';return}
+  const price=total/ss,months=Math.ceil(ss/per),st=$('#fStart').value;
+  $('#fCInfo').textContent=`${VND(price)}/buổi · mỗi tháng ${per} buổi = ${VND(price*per)} · khoảng ${months} tháng (${mShort(st)} – ${mShort(addM(st,months-1))})`+(pre?` · đóng trước ${VND(pre)} = ${fmtN(Math.round(pre/price*10)/10)} buổi, còn ${VND(Math.max(0,total-pre))}.`:'.');}
+function openStudent(id){
+  editing=id||null;const s=id?stu(id):{fee:DEF_FEE,sess:DEF_SESS,days:[],start:ui.month};
+  $('#dsTitle').textContent=id?'Sửa học viên':'Thêm học viên';
+  $('#fName').value=s.name||'';$('#fPhone').value=s.phone||'';$('#fGroup').value=s.group||'';
+  $('#fFee').value=s.fee??DEF_FEE;$('#fSess').value=s.sess??DEF_SESS;$('#fStart').value=s.start||ui.month;$('#fEnd').value=s.end||'';$('#fNote').value=s.note||'';
+  $('#fCTotal').value=s.course?s.course.total:'';$('#fCSess').value=s.course?s.course.sessions:'';$('#fCMode').value=s.course?(s.course.mode||'plan'):'plan';$('#fCPre').value='';
+  $('#fCPreWrap').classList.toggle('hide',!!(s.course));
+  $$('#fDays input').forEach(c=>c.checked=(s.days||[]).includes(+c.value));
+  setKind(isCK(s)?'ck':'month');$('#fDel').hidden=!id;$('#dStudent').showModal();$('#fName').focus();
+}
+['#fCTotal','#fCSess','#fSess','#fCPre'].forEach(q=>$(q).addEventListener('input',fInfo));$('#fStart').addEventListener('change',fInfo);
+$$('#fKind button').forEach(b=>b.onclick=()=>setKind(b.dataset.v));
+$('#fSave').onclick=()=>{
+  const name=$('#fName').value.trim();if(!name){$('#fName').focus();toast('Nhập họ tên học viên trước khi lưu.');return}
+  const start=$('#fStart').value,end=fKind==='ck'?'':$('#fEnd').value;if(end&&end<start){toast('Tháng nghỉ phải sau tháng bắt đầu.');return}
+  const sess=+$('#fSess').value||DEF_SESS;
+  const data={name,phone:$('#fPhone').value.trim(),group:$('#fGroup').value.trim(),sess,days:$$('#fDays input:checked').map(c=>+c.value),start,end,note:$('#fNote').value.trim()};
+  let pre=0;const had=editing&&isCK(stu(editing));
+  if(fKind==='ck'){const total=+$('#fCTotal').value,ss=+$('#fCSess').value;
+    if(!(total>0)){$('#fCTotal').focus();toast('Nhập học phí cả khoá.');return}if(!(ss>0)){$('#fCSess').focus();toast('Nhập tổng số buổi của khoá.');return}
+    data.course={total,sessions:ss,mode:$('#fCMode').value};data.fee=Math.round(total/ss*sess);if(!had)pre=+$('#fCPre').value||0}
+  else data.fee=+$('#fFee').value||0;
+  const id=editing||uid();write('students',id,data);
+  if(pre>0)write('payments',uid(),{sid:id,type:'ck',amount:pre,date:TODAY,note:'Đóng trước khi vào khoá'});
+  $('#dStudent').close();render();toast(editing?'Đã lưu thay đổi.':`Đã thêm ${name}.`);
+};
+$('#fDel').onclick=()=>{
+  const s=stu(editing);if(!s)return;
+  if(!confirm(`Xoá ${s.name} cùng toàn bộ lịch học và các khoản đã đóng? Không thể hoàn tác.`))return;
+  const id=editing;Object.entries(S.payments).forEach(([pid,p])=>{if(p.sid===id)write('payments',pid,null)});
+  write('attendance',id,null);write('students',id,null);$('#dStudent').close();closeDrawer();render();toast('Đã xoá học viên.');
+};
+
+/* ---------- payment dialog ---------- */
+let pType='month',amtTouched=false;
+function openPay(sid,mk,amount){
+  if(!Object.keys(S.students).length){toast('Thêm học viên trước rồi mới ghi nhận đóng tiền.');return}
+  $('#pSid').innerHTML=Object.entries(S.students).sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||'','vi')).map(([id,s])=>`<option value="${id}">${esc(s.name)}${isCK(s)?' (khoá buổi)':''}</option>`).join('');
+  if(sid)$('#pSid').value=sid;
+  $('#pMonth').value=mk||ui.month;$('#pMonths').value=3;$('#pDate').value=TODAY;$('#pNote').value='';amtTouched=false;
+  syncPayKind();if(amount>0){$('#pAmount').value=Math.round(amount);amtTouched=true;info()}
+  $('#dPay').showModal();
+}
+function syncPayKind(){const ck=isCK(stu($('#pSid').value));$('#pTypeField').classList.toggle('hide',ck);$('#pMonthRow').classList.toggle('hide',ck);if(ck)pType='ck';else if(pType==='ck')pType='month';setType(pType);autoAmount()}
+function setType(t){pType=t;$$('#pType button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===t));$('#pMonthsWrap').hidden=t!=='course';$('#pMonthLbl').textContent=t==='course'?'Bắt đầu từ tháng':'Cho tháng'}
+function autoAmount(){
+  const sid=$('#pSid').value,s=stu(sid);if(!s)return;const fee=+s.fee||0;
+  if(!amtTouched){
+    if(pType==='ck'){const r=status(sid,ui.month);const nx=nextCKDue(sid);$('#pAmount').value=Math.round(r.owe>0.5?r.owe:nx?nx.owe:fee)}
+    else if(pType==='course')$('#pAmount').value=fee*(+$('#pMonths').value||1);
+    else{const r=status(sid,$('#pMonth').value);$('#pAmount').value=r.owe>0?Math.round(r.owe):fee}}
+  info();
+}
+function info(){
+  const sid=$('#pSid').value,amt=+$('#pAmount').value||0,m=$('#pMonth').value;
+  if(pType==='ck'){const cs=cSummary(sid);const add=cs.price?amt/cs.price:0;
+    $('#pInfo').textContent=`${VND(amt)} = ${fmtN(Math.round(add*10)/10)} buổi (${VND(cs.price)}/buổi). Sau khi đóng: đã trả ${VND(cs.paid+amt)} / ${VND(cs.total)} (${fmtN(Math.round((cs.paidSess+add)*10)/10)}/${cs.sessions} buổi), còn ${VND(Math.max(0,cs.total-cs.paid-amt))}.`}
+  else if(pType==='course'){const n=+$('#pMonths').value||1;$('#pInfo').textContent=`Chia đều ${VND(amt)} cho ${n} tháng (${mShort(m)} – ${mShort(addM(m,n-1))}): ≈ ${VND(amt/n)}/tháng.`}
+  else{const r=status(sid,m);$('#pInfo').textContent=r.due?`${mLabel(m)}: phải đóng ${VND(r.due)}, đã đóng ${VND(r.paid)}.`:`${mLabel(m)} nằm ngoài thời gian học của học viên này.`}
+}
+$$('#pType button').forEach(b=>b.onclick=()=>{setType(b.dataset.v);amtTouched=false;autoAmount()});
+$('#pSid').onchange=()=>{amtTouched=false;syncPayKind()};$('#pMonth').onchange=()=>{amtTouched=false;autoAmount()};$('#pMonths').oninput=()=>{amtTouched=false;autoAmount()};
+$('#pAmount').oninput=()=>{amtTouched=true;info()};
+$('#pSave').onclick=()=>{
+  const amt=+$('#pAmount').value;if(!(amt>0)){$('#pAmount').focus();toast('Nhập số tiền lớn hơn 0.');return}
+  const p={sid:$('#pSid').value,type:pType,amount:amt,date:$('#pDate').value||TODAY,note:$('#pNote').value.trim()};
+  if(pType!=='ck')p.month=$('#pMonth').value;if(pType==='course')p.months=Math.max(1,+$('#pMonths').value||1);
+  const pid=uid();write('payments',pid,p);$('#dPay').close();render();
+  toast(`Đã ghi nhận ${VND(amt)} — ${stu(p.sid).name}.`,()=>{write('payments',pid,null);render()});
+};
+function quickPay(id){
+  const mk=ui.month,r=status(id,mk);if(r.owe<=0.5)return;
+  const p=r.ck?{sid:id,type:'ck',amount:Math.round(r.owe),date:TODAY,note:`Góp cho ${mLow(mk)}`}:{sid:id,type:'month',month:mk,amount:Math.round(r.owe),date:TODAY,note:''};
+  const pid=uid();write('payments',pid,p);render();
+  toast(`${stu(id).name}: đã đóng ${VND(r.owe)} cho ${mLow(mk)}.`,()=>{write('payments',pid,null);render()});
+}
+
+/* ---------- reminder message ---------- */
+function openMsg(it){$('#mTitle').textContent=`Nhắc ${stu(it.id).name}`;$('#mText').value=msgFor(it);$('#dMsg').showModal()}
+$('#mCopy').onclick=async()=>{const ta=$('#mText');
+  try{await navigator.clipboard.writeText(ta.value);toast('Đã sao chép tin nhắn.')}
+  catch(e){ta.focus();ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}toast(ok?'Đã sao chép tin nhắn.':'Tin nhắn đã được bôi đen — nhấn giữ hoặc Ctrl+C để sao chép.')}};
+
+/* ---------- attendance ---------- */
+function applyAtt(id,changes){const cur={...(S.att[id]||{})};const prev={};
+  for(const[k,v]of Object.entries(changes)){prev[k]=cur[k]??null;if(v)cur[k]=v;else delete cur[k]}
+  S.att[id]=cur;writeAtt(id);if(!db)saveLocal();render();return prev}
+function refocusDay(k){const el=document.querySelector(`[data-day="${k}"]`);el&&el.focus()}
+function onDay(k){const id=ui.open;
+  if(ui.attMode==='quick'){const ex=(S.att[id]||{})[k];applyAtt(id,{[k]:ex?null:{s:'p',n:1}});refocusDay(k);return}
+  if(ui.attMode==='multi'){ui.picked.has(k)?ui.picked.delete(k):ui.picked.add(k);render();refocusDay(k);return}
+  openAtt([k])}
+function pickScheduled(){const s=stu(ui.open);const days=s.days||[];if(!days.length){toast('Học viên chưa có lịch học trong tuần — bấm "Sửa" để thêm.');return}
+  const[yy,mm]=ui.month.split('-').map(Number);const nd=new Date(yy,mm,0).getDate();const marks=S.att[ui.open]||{};let c=0;
+  for(let d=1;d<=nd;d++){const k=`${ui.month}-${pad(d)}`;if(ui.month===CUR&&k>TODAY)break;if(days.includes(new Date(yy,mm-1,d).getDay())&&!marks[k]){ui.picked.add(k);c++}}
+  render();if(!c)toast('Không còn ngày có lịch nào chưa đánh dấu.')}
+let aDays=[],aStat='p';
+function setAStat(v){aStat=v;$$('#aStat button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v));aPreview()}
+function aVal(){let n=parseFloat(String($('#aN').value).replace(',','.'));if(!(n>0))n=0;return Math.min(6,Math.round(n*2)/2)}
+function aPreview(){const id=ui.open,s=stu(id);if(!s||!aDays.length)return;const n=aVal();
+  $$('#aChips .chip').forEach(c=>c.setAttribute('aria-pressed',+c.dataset.n===n));
+  const marks=S.att[id]||{};const mk=aDays[0].slice(0,7);let delta=0;
+  for(const k of aDays){const ex=rec(marks[k]);delta+=-(ex&&(ex.s==='p'||ex.s==='m')?ex.n:0)+((aStat==='p'||aStat==='m')?n:0)}
+  const el=$('#aPreview');let t=aDays.length>1?`${aDays.length} ngày × ${fmtN(n)} buổi = ${fmtN(n*aDays.length)} buổi ${ATT[aStat].t.toLowerCase()}. `:'';
+  if(isCK(s)){const cs=cSummary(id);const after=cs.learned+delta;const bal=cs.paidSess-after;
+    t+=`Sau khi xác nhận: đã học ${fmtN(after)}/${cs.sessions} buổi của khoá`+(bal<0?` — vượt ${fmtN(Math.round(-bal*10)/10)} buổi so với tiền đã đóng.`:`, còn ${fmtN(Math.round(bal*10)/10)} buổi đã trả.`);el.classList.toggle('warn',bal<0)}
+  else{const sess=+s.sess||DEF_SESS;const after=attStats(id,mk).learned+delta;
+    t+=`Sau khi xác nhận: đã học ${fmtN(after)}/${sess} buổi trong ${mLow(mk)}`+(after>sess?` — vượt ${fmtN(after-sess)} buổi so với gói ${sess} buổi.`:`, còn ${fmtN(sess-after)} buổi.`);el.classList.toggle('warn',after>sess)}
+  el.textContent=t;$('#aSave').disabled=!(n>0)}
+function openAtt(keys){aDays=keys;const id=ui.open;const marks=S.att[id]||{};const ex=keys.length===1?rec(marks[keys[0]]):null;
+  if(keys.length===1){const[y,m,d]=keys[0].split('-').map(Number);$('#aTitle').textContent=`${DOWFULL[new Date(y,m-1,d).getDay()]}, ${d}/${m}/${y}`;$('#aSub').textContent=stu(id).name}
+  else{$('#aTitle').textContent=`Xác nhận ${keys.length} ngày`;$('#aSub').textContent=stu(id).name+' · ngày '+keys.map(k=>+k.slice(8)).join(', ')}
+  $('#aNLbl').textContent=keys.length>1?'Số buổi mỗi ngày':'Số buổi trong ngày';
+  $('#aN').value=ex?ex.n:1;$('#aNote').value=ex?ex.note:'';$('#aClear').hidden=!keys.some(k=>marks[k]);
+  setAStat(ex?ex.s:'p');$('#dAtt').showModal();$('#aSave').focus()}
+$('#aChips').innerHTML=[0.5,1,1.5,2,3].map(n=>`<button class="chip" data-n="${n}">${fmtN(n)}</button>`).join('');
+$('#aChips').onclick=e=>{const c=e.target.closest('[data-n]');if(c){$('#aN').value=c.dataset.n;aPreview()}};
+$$('#aStat button').forEach(b=>b.onclick=()=>setAStat(b.dataset.v));
+$('#aMinus').onclick=()=>{$('#aN').value=Math.max(0.5,aVal()-0.5);aPreview()};
+$('#aPlus').onclick=()=>{$('#aN').value=Math.min(6,(aVal()||0)+0.5);aPreview()};
+$('#aN').oninput=aPreview;
+$('#aSave').onclick=()=>{const n=aVal();if(!(n>0)){$('#aN').focus();return}
+  const note=$('#aNote').value.trim();const id=ui.open;const ch={};aDays.forEach(k=>{ch[k]=note?{s:aStat,n,note}:{s:aStat,n}});
+  const prev=applyAtt(id,ch);$('#dAtt').close();ui.picked.clear();render();
+  toast(aDays.length>1?`Đã xác nhận ${aDays.length} ngày — ${ATT[aStat].t.toLowerCase()} ${fmtN(n)} buổi/ngày.`:`Đã xác nhận: ${ATT[aStat].t.toLowerCase()} ${fmtN(n)} buổi.`,()=>applyAtt(id,prev))};
+$('#aClear').onclick=()=>{const id=ui.open;const ch={};aDays.forEach(k=>ch[k]=null);const prev=applyAtt(id,ch);$('#dAtt').close();ui.picked.clear();render();toast('Đã xoá đánh dấu.',()=>applyAtt(id,prev))};
+
+/* ---------- events ---------- */
+$('#addStudent').onclick=()=>openStudent();
+$('#addPay').onclick=()=>openPay(ui.open);
+const step=()=>ui.tab==='year'||ui.tab==='stats'?12:1;
+$('#prevM').onclick=()=>{ui.month=addM(ui.month,-step());render()};
+$('#nextM').onclick=()=>{ui.month=addM(ui.month,step());render()};
+$$('.tabs button').forEach(b=>b.onclick=()=>{ui.tab=b.dataset.tab;render()});
+$('#q').oninput=e=>{ui.q=e.target.value;render()};
+$('#scrim').onclick=closeDrawer;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ui.open&&!document.querySelector('dialog[open]'))closeDrawer()});
+$$('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
+
+$('#view').addEventListener('click',e=>{const t=e.target;
+  const q=t.closest('[data-quick]');if(q){e.stopPropagation();quickPay(q.dataset.quick);return}
+  const f=t.closest('[data-filter]');if(f){ui.filter=f.dataset.filter;render();return}
+  const tg=t.closest('[data-tabgo]');if(tg){ui.tab=tg.dataset.tabgo;render();return}
+  if(t.closest('[data-act="add"]')){openStudent();return}
+  const ms=t.closest('[data-msg]');if(ms){openMsg(lastRs[+ms.dataset.msg]);return}
+  const rp=t.closest('[data-rpay]');if(rp){const it=lastRs[+rp.dataset.rpay];openPay(it.id,it.month,it.amount);return}
+  const sm=t.closest('[data-sm]');if(sm&&!t.closest('[data-open]')){ui.statMonth=sm.dataset.sm;render();const g=document.querySelector(`.chart [data-sm="${ui.statMonth}"]`);if(sm.tagName.toLowerCase()==='g'&&g)g.focus();return}
+  const o=t.closest('[data-open]');if(o){if(o.dataset.m)ui.month=o.dataset.m;else if(ui.tab==='stats'&&ui.statMonth)ui.month=ui.statMonth;openDrawer(o.dataset.open)}
+});
+$('#view').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const t=e.target;
+  if(t.classList.contains('row')){e.preventDefault();openDrawer(t.dataset.open)}
+  else if(t.dataset&&t.dataset.sm){e.preventDefault();ui.statMonth=t.dataset.sm;render();const g=document.querySelector(`.chart [data-sm="${ui.statMonth}"]`);g&&g.focus()}});
+
+$('#drawer').addEventListener('click',e=>{const t=e.target;
+  if(t.closest('#closeD')){closeDrawer();return}
+  const day=t.closest('[data-day]');if(day){onDay(day.dataset.day);return}
+  const am=t.closest('[data-amode]');if(am){ui.attMode=am.dataset.amode;ui.picked.clear();render();const b=document.querySelector(`[data-amode="${ui.attMode}"]`);b&&b.focus();return}
+  if(t.closest('#pickSched')){pickScheduled();return}
+  if(t.closest('#pickClear')){ui.picked.clear();render();return}
+  if(t.closest('#pickGo')){if(ui.picked.size)openAtt([...ui.picked].sort());return}
+  const m=t.closest('[data-m]');if(m){ui.month=m.dataset.m;render();return}
+  const mv=t.closest('[data-mv]');if(mv){ui.month=addM(ui.month,+mv.dataset.mv);render();return}
+  const q=t.closest('[data-quick]');if(q){quickPay(q.dataset.quick);return}
+  const ed=t.closest('[data-edit]');if(ed){openStudent(ed.dataset.edit);return}
+  const pf=t.closest('[data-payfor]');if(pf){openPay(pf.dataset.payfor);return}
+  const dp=t.closest('[data-delpay]');if(dp){const pid=dp.dataset.delpay;const old=S.payments[pid];if(!old)return;
+    write('payments',pid,null);render();toast('Đã xoá khoản đóng tiền.',()=>{write('payments',pid,old);render()})}
+});
+
+loadLocal();render();initDb();
+})();
+
+</script>
+</body>
+</html>
