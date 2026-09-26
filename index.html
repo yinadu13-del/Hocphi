@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sổ học phí</title>
+<title>Sổ học phí (Copy)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -279,6 +279,45 @@ table.st tbody tr.sel{background:var(--jade-soft)}
 table.st tfoot td{font-weight:700}
 table.st .cash{color:var(--jade);font-weight:600} table.st .owe{color:var(--red)}
 .stnote{font-size:12px;color:var(--muted);margin:-6px 0 14px}
+.tabs{overflow-x:auto;max-width:100%}
+.tabs button{white-space:nowrap}
+/* class roll call */
+.clsbar{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;display:grid;gap:12px}
+.clsbar .chips{margin:0}
+.chip .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--jade);margin-right:5px;vertical-align:2px}
+.chip small{color:var(--muted);font-weight:400;margin-left:4px}
+.daterow{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.daterow input{border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:6px 10px}
+.daterow .dow{font-weight:600}
+.nrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.nrow .chips{margin:0}
+.rollhead{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.roll{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.ri{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-top:1px solid var(--line);border-left:4px solid transparent}
+.ri:first-child{border-top:0}
+.ri.p{border-left-color:var(--jade);background:var(--jade-soft)}
+.ri.m{border-left-color:var(--blue);background:var(--blue-soft)}
+.ri.a{border-left-color:var(--red)}
+.ri.e{border-left-color:var(--amber)}
+.rname{flex:1;min-width:0;display:flex;align-items:center;gap:12px;border:0;background:none;padding:6px 4px;text-align:left;border-radius:8px}
+.rcheck{flex:none;width:34px;height:34px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;background:var(--surface)}
+.ri.p .rcheck{background:var(--jade);border-color:var(--jade);color:var(--surface)}
+.ri.m .rcheck{background:var(--blue);border-color:var(--blue);color:var(--surface)}
+.ri.a .rcheck{border-color:var(--red);color:var(--red)}
+.ri.e .rcheck{border-color:var(--amber);color:var(--amber)}
+.rname b{display:block;font-weight:600}
+.rname small{display:block;font-size:12px;color:var(--muted)}
+.rname small .w{color:var(--amber);font-weight:600}
+.rseg{display:flex;gap:3px;flex:none}
+.rseg button{width:34px;height:34px;border:1px solid var(--line);background:var(--surface);border-radius:7px;font-size:13px;font-weight:700;color:var(--muted);padding:0}
+.rseg button[aria-pressed="true"][data-v="p"]{background:var(--jade);border-color:var(--jade);color:var(--surface)}
+.rseg button[aria-pressed="true"][data-v="m"]{background:var(--blue);border-color:var(--blue);color:var(--surface)}
+.rseg button[aria-pressed="true"][data-v="a"]{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.rseg button[aria-pressed="true"][data-v="e"]{background:var(--amber-soft);border-color:var(--amber);color:var(--amber)}
+.savebar{position:sticky;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,.08);font-size:14px}
+.savebar .cnt{flex:1;color:var(--muted)}
+.savebar .cnt b{color:var(--ink)}
+.savebar .dirty{color:var(--amber);font-weight:600}
 textarea#mText{width:100%;min-height:130px;border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:10px;line-height:1.5}
 </style>
 </head>
@@ -301,6 +340,7 @@ textarea#mText{width:100%;min-height:130px;border:1px solid var(--line);backgrou
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="month" aria-selected="true">Theo tháng</button>
       <button role="tab" data-tab="year" aria-selected="false">Cả năm</button>
+      <button role="tab" data-tab="class" aria-selected="false">Điểm danh lớp</button>
       <button role="tab" data-tab="stats" aria-selected="false">Thống kê</button>
       <button role="tab" data-tab="remind" aria-selected="false">Nhắc nhở<span class="badge" id="rBadge" hidden></span></button>
     </div>
@@ -322,7 +362,7 @@ textarea#mText{width:100%;min-height:130px;border:1px solid var(--line);backgrou
     <div class="field"><label for="fName">Họ tên</label><input id="fName" autocomplete="off"></div>
     <div class="two">
       <div class="field"><label for="fPhone">SĐT / Zalo</label><input id="fPhone" inputmode="tel" autocomplete="off"></div>
-      <div class="field"><label for="fGroup">Lớp / nhóm</label><input id="fGroup" autocomplete="off" placeholder="VD: HSK1 tối"></div>
+      <div class="field"><label for="fGroup">Lớp / nhóm</label><input id="fGroup" autocomplete="off" placeholder="VD: HSK1 tối" list="groupList"><datalist id="groupList"></datalist></div>
     </div>
     <div class="field kind"><span class="lbl">Hình thức học phí</span>
       <div class="seg" id="fKind">
@@ -462,7 +502,7 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 
 const S={students:{},payments:{},att:{}};
 let remindN=2;try{remindN=+localStorage.getItem('so-hoc-phi-nhac')||2}catch(e){}
-const ui={month:CUR,tab:'month',filter:'all',q:'',open:null,attMode:'detail',picked:new Set(),statMonth:CUR};
+const ui={month:CUR,tab:'month',filter:'all',q:'',open:null,attMode:'detail',picked:new Set(),statMonth:CUR,cls:{g:null,date:TODAY,n:1,draft:{},dirty:false}};
 
 /* ---------- storage: shared db when available, browser storage otherwise ---------- */
 const LKEY='so-hoc-phi-v1';
@@ -546,6 +586,61 @@ function payDesc(p){
   if(p.type==='course')return{t:`Trọn gói ${p.months} tháng (${mShort(p.month)} – ${mShort(addM(p.month,(+p.months||1)-1))})`,sub:`≈ ${VND((+p.amount||0)/(+p.months||1))}/tháng`};
   return{t:`Học phí ${mLow(p.month)}`,sub:''}}
 
+/* ---------- class roll call ---------- */
+function groups(){const m=new Map();for(const s of Object.values(S.students)){const g=(s.group||'').trim();m.set(g,(m.get(g)||0)+1)}
+  return [...m.entries()].sort((a,b)=>a[0]===''?1:b[0]===''?-1:a[0].localeCompare(b[0],'vi'))}
+function studying(id,s,date){const mk=date.slice(0,7);if((S.att[id]||{})[date])return true;
+  if(isCK(s)){const c=cInfo(s);return mk>=c.start&&(mk<=c.end||learnedRange(id,c.start)<c.sessions)}return active(s,mk)}
+function clsStudents(){const c=ui.cls;return sortedStudents().filter(([id,s])=>(c.g==='*'||(s.group||'').trim()===c.g)&&studying(id,s,c.date))}
+function wdOf(date){const[y,m,d]=date.split('-').map(Number);return new Date(y,m-1,d).getDay()}
+function loadDraft(){const c=ui.cls;c.draft={};let n=null;
+  for(const[id]of clsStudents()){const ex=rec((S.att[id]||{})[c.date]);if(ex){c.draft[id]=ex.s;if(n===null)n=ex.n}}
+  if(n!==null)c.n=n;c.dirty=false}
+function leaveClassOk(){return !(ui.cls.dirty&&!confirm('Điểm danh chưa được lưu. Bỏ các thay đổi?'))}
+function renderClass(){
+  const c=ui.cls;const gs=groups();
+  if(!gs.length){$('#view').innerHTML=emptyAll;return}
+  const wd=wdOf(c.date);
+  const hasToday=g=>Object.values(S.students).some(s=>(g==='*'||(s.group||'').trim()===g)&&(s.days||[]).includes(wd));
+  if(c.g===null||(c.g!=='*'&&!gs.some(([g])=>g===c.g))){const t=gs.find(([g])=>hasToday(g));c.g=t?t[0]:gs[0][0];c.dirty=false}
+  if(!c.dirty)loadDraft();
+  const list=clsStudents();
+  const chip=(g,label,cnt)=>`<button class="chip" data-cls="${esc(g)}" aria-pressed="${c.g===g}">${hasToday(g)?'<span class="dot" title="Có lịch học hôm nay"></span>':''}${esc(label)}${cnt!=null?`<small>${cnt}</small>`:''}</button>`;
+  const nchip=[0.5,1,1.5,2,3].map(n=>`<button class="chip" data-cn="${n}" aria-pressed="${c.n===n}">${fmtN(n)}</button>`).join('');
+  const cnt={p:0,a:0,e:0,m:0,none:0};list.forEach(([id])=>{const v=c.draft[id];v?cnt[v]++:cnt.none++});
+  const items=list.map(([id,s])=>{const v=c.draft[id]||'';const sch=(s.days||[]).includes(wd);
+    let info;if(isCK(s)){const cs=cSummary(id);info=`Khoá ${fmtN(cs.learned)}/${cs.sessions} buổi · đã trả ${fmtN(Math.round(cs.paidSess*10)/10)}`+(cs.balance<=remindN&&cs.owedTotal>0.5?` · <span class="w">còn ${fmtN(Math.max(0,Math.round(cs.balance*10)/10))} buổi đã trả</span>`:'')}
+    else{const a=attStats(id,c.date.slice(0,7));const sess=+s.sess||DEF_SESS;info=`Tháng này ${fmtN(a.learned)}/${sess} buổi`+(sess-a.learned<=remindN?` · <span class="w">sắp hết buổi</span>`:'')}
+    if(!sch&&(s.days||[]).length)info+=' · không có lịch hôm nay';
+    return `<div class="ri ${v}"><button class="rname" data-rtoggle="${id}" aria-pressed="${v==='p'}" aria-label="${esc(s.name)}: ${v?ATT[v].t:'chưa điểm danh'}. Chạm để ${v==='p'?'bỏ':'đánh dấu có mặt'}"><span class="rcheck">${v?ATT[v].k:''}</span><span><b>${esc(s.name)}</b><small>${info}</small></span></button>
+      <div class="rseg" role="group" aria-label="Trạng thái của ${esc(s.name)}">${['p','a','e','m'].map(x=>`<button data-rset="${id}" data-v="${x}" aria-pressed="${v===x}" title="${ATT[x].t}">${ATT[x].k}</button>`).join('')}</div></div>`}).join('');
+  $('#view').innerHTML=`
+    <div class="clsbar">
+      <div class="chips">${gs.map(([g,n])=>chip(g,g||'Chưa xếp lớp',n)).join('')}${gs.length>1?chip('*','Tất cả học viên',null):''}</div>
+      <div class="daterow"><button class="btn sm" data-cday="-1" aria-label="Ngày trước">‹</button><input type="date" id="cDate" value="${c.date}" aria-label="Ngày điểm danh"><button class="btn sm" data-cday="1" aria-label="Ngày sau">›</button>
+        <span class="dow">${DOWFULL[wd]}</span>${c.date!==TODAY?'<button class="btn sm" data-cday="0">Hôm nay</button>':''}</div>
+      <div class="nrow"><span>Số buổi học hôm nay:</span><div class="chips">${nchip}</div></div>
+    </div>
+    ${list.length?`<div class="rollhead"><button class="btn sm" data-call="p">Tất cả có mặt</button><button class="btn sm" data-call="rest-a">Người chưa chọn → Vắng</button><button class="btn sm" data-call="clear">Bỏ chọn hết</button></div>
+    <div class="roll">${items}</div>
+    <div class="savebar"><span class="cnt">Có mặt <b>${cnt.p}</b> · Vắng <b>${cnt.a}</b> · Có phép <b>${cnt.e}</b>${cnt.m?` · Học bù <b>${cnt.m}</b>`:''} · Chưa chọn <b>${cnt.none}</b>${c.dirty?' · <span class="dirty">chưa lưu</span>':''}</span>
+      <button class="btn primary" id="cSave" ${c.dirty?'':'disabled'}>Lưu điểm danh</button></div>`
+    :`<div class="list"><div class="empty"><p>Lớp này không có học viên nào đang học vào ${dLabel(c.date)}.</p></div></div>`}`;
+}
+function setDraft(id,v){const c=ui.cls;if(v)c.draft[id]=v;else delete c.draft[id];c.dirty=true;render();
+  const el=document.querySelector(`[data-rtoggle="${id}"]`);el&&el.focus()}
+function saveClass(){
+  const c=ui.cls,date=c.date,n=c.n;const prevAll={};let changed=0;
+  for(const[id]of clsStudents()){const cur=(S.att[id]||{})[date];const ex=rec(cur);const want=c.draft[id];
+    const nv=want?{s:want,n}:null;if(nv&&ex&&ex.note)nv.note=ex.note;
+    if((!ex&&!nv)||(ex&&nv&&ex.s===nv.s&&ex.n===nv.n))continue;
+    prevAll[id]=cur??null;const m={...(S.att[id]||{})};if(nv)m[date]=nv;else delete m[date];S.att[id]=m;writeAtt(id);changed++}
+  if(!db)saveLocal();c.dirty=false;render();
+  toast(changed?`Đã lưu điểm danh ${changed} học viên — ${dLabel(date)}, ${fmtN(n)} buổi.`:'Không có thay đổi nào.',changed?()=>{
+    for(const[id,v]of Object.entries(prevAll)){const m={...(S.att[id]||{})};if(v)m[date]=v;else delete m[date];S.att[id]=m;writeAtt(id)}
+    if(!db)saveLocal();ui.cls.dirty=false;render()}:null);
+}
+
 /* ---------- reminders ---------- */
 const LV={red:0,amber:1,blue:2};
 function reminders(){
@@ -588,11 +683,11 @@ function msgFor(it){
 function render(){
   const yearish=ui.tab==='year'||ui.tab==='stats';
   $('#mLabel').textContent=yearish?`Năm ${ui.month.slice(0,4)}`:mLabel(ui.month);
-  $('#monthnav').classList.toggle('hide',ui.tab==='remind');
+  $('#monthnav').classList.toggle('hide',ui.tab==='remind'||ui.tab==='class');
   $$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===ui.tab));
   const rs=reminders();const urgent=rs.filter(x=>x.lv!=='blue').length;
   const bd=$('#rBadge');bd.hidden=!urgent;bd.textContent=urgent;
-  ({month:renderMonth,year:renderYear,stats:renderStats,remind:()=>renderRemind(rs)})[ui.tab](rs);
+  ({month:renderMonth,year:renderYear,stats:renderStats,class:renderClass,remind:()=>renderRemind(rs)})[ui.tab](rs);
   if(ui.open)renderDrawer();
 }
 function sortedStudents(){
@@ -784,6 +879,7 @@ function openStudent(id){
   $('#fCTotal').value=s.course?s.course.total:'';$('#fCSess').value=s.course?s.course.sessions:'';$('#fCMode').value=s.course?(s.course.mode||'plan'):'plan';$('#fCPre').value='';
   $('#fCPreWrap').classList.toggle('hide',!!(s.course));
   $$('#fDays input').forEach(c=>c.checked=(s.days||[]).includes(+c.value));
+  $('#groupList').innerHTML=groups().filter(([g])=>g).map(([g])=>`<option value="${esc(g)}">`).join('');
   setKind(isCK(s)?'ck':'month');$('#fDel').hidden=!id;$('#dStudent').showModal();$('#fName').focus();
 }
 ['#fCTotal','#fCSess','#fSess','#fCPre'].forEach(q=>$(q).addEventListener('input',fInfo));$('#fStart').addEventListener('change',fInfo);
@@ -909,7 +1005,7 @@ $('#addPay').onclick=()=>openPay(ui.open);
 const step=()=>ui.tab==='year'||ui.tab==='stats'?12:1;
 $('#prevM').onclick=()=>{ui.month=addM(ui.month,-step());render()};
 $('#nextM').onclick=()=>{ui.month=addM(ui.month,step());render()};
-$$('.tabs button').forEach(b=>b.onclick=()=>{ui.tab=b.dataset.tab;render()});
+$$('.tabs button').forEach(b=>b.onclick=()=>{if(ui.tab==='class'&&b.dataset.tab!=='class'&&!leaveClassOk())return;if(b.dataset.tab!=='class')ui.cls.dirty=false;ui.tab=b.dataset.tab;render()});
 $('#q').oninput=e=>{ui.q=e.target.value;render()};
 $('#scrim').onclick=closeDrawer;
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ui.open&&!document.querySelector('dialog[open]'))closeDrawer()});
@@ -917,6 +1013,13 @@ $$('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 
 $('#view').addEventListener('click',e=>{const t=e.target;
   const q=t.closest('[data-quick]');if(q){e.stopPropagation();quickPay(q.dataset.quick);return}
+  const cg=t.closest('[data-cls]');if(cg){if(cg.dataset.cls!==ui.cls.g&&leaveClassOk()){ui.cls.g=cg.dataset.cls;ui.cls.dirty=false;render()}return}
+  const cd=t.closest('[data-cday]');if(cd){if(leaveClassOk()){const k=+cd.dataset.cday;if(!k)ui.cls.date=TODAY;else{const[y,m,d]=ui.cls.date.split('-').map(Number);const x=new Date(y,m-1,d+k);ui.cls.date=`${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`}ui.cls.dirty=false;render()}return}
+  const cn=t.closest('[data-cn]');if(cn){ui.cls.n=+cn.dataset.cn;ui.cls.dirty=true;render();return}
+  const rt=t.closest('[data-rtoggle]');if(rt){const id=rt.dataset.rtoggle;setDraft(id,ui.cls.draft[id]==='p'?null:'p');return}
+  const rsb=t.closest('[data-rset]');if(rsb){const id=rsb.dataset.rset;setDraft(id,ui.cls.draft[id]===rsb.dataset.v?null:rsb.dataset.v);const b=document.querySelector(`[data-rset="${id}"][data-v="${rsb.dataset.v}"]`);b&&b.focus();return}
+  const ca=t.closest('[data-call]');if(ca){const c=ui.cls;const k=ca.dataset.call;clsStudents().forEach(([id])=>{if(k==='p')c.draft[id]='p';else if(k==='clear')delete c.draft[id];else if(!c.draft[id])c.draft[id]='a'});c.dirty=true;render();return}
+  if(t.closest('#cSave')){saveClass();return}
   const f=t.closest('[data-filter]');if(f){ui.filter=f.dataset.filter;render();return}
   const tg=t.closest('[data-tabgo]');if(tg){ui.tab=tg.dataset.tabgo;render();return}
   if(t.closest('[data-act="add"]')){openStudent();return}
@@ -925,6 +1028,8 @@ $('#view').addEventListener('click',e=>{const t=e.target;
   const sm=t.closest('[data-sm]');if(sm&&!t.closest('[data-open]')){ui.statMonth=sm.dataset.sm;render();const g=document.querySelector(`.chart [data-sm="${ui.statMonth}"]`);if(sm.tagName.toLowerCase()==='g'&&g)g.focus();return}
   const o=t.closest('[data-open]');if(o){if(o.dataset.m)ui.month=o.dataset.m;else if(ui.tab==='stats'&&ui.statMonth)ui.month=ui.statMonth;openDrawer(o.dataset.open)}
 });
+$('#view').addEventListener('change',e=>{if(e.target.id==='cDate'){const v=e.target.value;if(!v)return;if(leaveClassOk()){ui.cls.date=v;ui.cls.dirty=false}render()}});
+window.addEventListener('beforeunload',e=>{if(ui.tab==='class'&&ui.cls.dirty){e.preventDefault();e.returnValue=''}});
 $('#view').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const t=e.target;
   if(t.classList.contains('row')){e.preventDefault();openDrawer(t.dataset.open)}
   else if(t.dataset&&t.dataset.sm){e.preventDefault();ui.statMonth=t.dataset.sm;render();const g=document.querySelector(`.chart [data-sm="${ui.statMonth}"]`);g&&g.focus()}});
