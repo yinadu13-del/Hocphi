@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sổ học phí (Copy)</title>
+<title>Sổ học phí</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -507,20 +507,39 @@ const ui={month:CUR,tab:'month',filter:'all',q:'',open:null,attMode:'detail',pic
 /* ---------- storage: shared db when available, browser storage otherwise ---------- */
 const LKEY='so-hoc-phi-v1';
 let db=null;
-function loadLocal(){try{const raw=localStorage.getItem(LKEY);if(raw){const d=JSON.parse(raw);S.students=d.students||{};S.payments=d.payments||{};S.att=d.att||{}}}catch(e){}}
+// Attendance for one student is a flat map {"YYYY-MM-DD": record}. flatAtt also repairs data
+// that an earlier version wrapped as {dates:{...}} (sometimes nested several times).
+const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
+function flatAtt(o,out){out=out||{};if(!o||typeof o!=='object')return out;
+  for(const[k,v]of Object.entries(o)){if(k==='dates'&&v&&typeof v==='object')flatAtt(v,out);else if(DATE_RE.test(k)&&v)out[k]=v}return out}
+function fixAllAtt(){let fixed=false;for(const id of Object.keys(S.att)){const f=flatAtt(S.att[id]);if(JSON.stringify(f)!==JSON.stringify(S.att[id])){S.att[id]=f;fixed=true}}return fixed}
+function loadLocal(){try{const raw=localStorage.getItem(LKEY);if(raw){const d=JSON.parse(raw);S.students=d.students||{};S.payments=d.payments||{};S.att=d.att||{};if(fixAllAtt())saveLocal()}}catch(e){}}
 function saveLocal(){if(db)return;try{localStorage.setItem(LKEY,JSON.stringify(S))}catch(e){}}
 function fail(e){console.error(e);const c=e&&e.code;toast(c==='quota_exceeded'?'Bộ nhớ đã đầy — xoá bớt dữ liệu cũ rồi thử lại.':'Chưa lưu được thay đổi. Kiểm tra kết nối rồi thử lại.')}
 const mapCol=c=>c==='attendance'?'att':c;
 const queues={};
 function write(col,id,data){ // data null = delete
-  if(data===null)delete S[mapCol(col)][id]; else S[mapCol(col)][id]=data;
+  const local=col==='attendance'&&data?flatAtt(data):data; // keep local attendance flat, never the {dates} wrapper
+  if(local===null)delete S[mapCol(col)][id]; else S[mapCol(col)][id]=local;
   if(!db){saveLocal();return Promise.resolve()}
   const key=col+'/'+id; const prev=queues[key]||Promise.resolve();
   const p=prev.catch(()=>{}).then(()=>{const ref=db.collection(col).doc(id);return data===null?ref.delete():ref.set(data)});
   queues[key]=p; p.catch(fail); return p;
 }
-const attTimers={};
-function writeAtt(sid){clearTimeout(attTimers[sid]);attTimers[sid]=setTimeout(()=>{delete attTimers[sid];write('attendance',sid,{dates:{...(S.att[sid]||{})}})},600)}
+// Attendance is saved ONE DAY AT A TIME (merge), never by rewriting a student's whole calendar,
+// so a stale copy of the calendar can never wipe out days ticked earlier.
+// attOverlay keeps this device's recent taps on top of incoming snapshots until the server echoes them.
+const attOverlay={};
+const recEq=(a,b)=>{const x=rec(a),y=rec(b);return (!x&&!y)||(!!x&&!!y&&x.s===y.s&&x.n===y.n&&(x.note||'')===(y.note||''))};
+function saveAttDays(sid,changes){ // changes: {"YYYY-MM-DD": record|null}
+  if(!db){saveLocal();return}
+  const ov=attOverlay[sid]||(attOverlay[sid]={});const t=Date.now();const payload={};
+  for(const[k,v]of Object.entries(changes)){ov[k]={v:v||null,t};payload[k]=v||null}
+  const ref=db.collection('attendance').doc(sid);const key='attendance/'+sid;const prev=queues[key]||Promise.resolve();
+  const p=prev.catch(()=>{}).then(()=>ref.update({dates:payload}).catch(e=>{ // update merges; fails only if the doc does not exist yet
+    if(e&&e.code==='invalid_argument')return ref.set({dates:payload});throw e}));
+  queues[key]=p;p.catch(fail);
+}
 async function initDb(){
   if(!(window.claude&&typeof window.claude.use==='function'))return setSync();
   let d=null;try{d=await window.claude.use('db')}catch(e){d=null}
@@ -538,8 +557,17 @@ async function initDb(){
     render();
   },fail);
   db.collection('payments').onSnapshot(snap=>{const o={};snap.docs.forEach(x=>{if(x.exists)o[x.id]=x.data()});S.payments=o;render()},fail);
-  db.collection('attendance').onSnapshot(snap=>{const o={};snap.docs.forEach(x=>{if(x.exists)o[x.id]={...((x.data()||{}).dates||{})}});
-    Object.keys(attTimers).forEach(k=>{if(S.att[k])o[k]=S.att[k]});S.att=o;render()},fail);
+  db.collection('attendance').onSnapshot(snap=>{const o={};const broken=[];const now=Date.now();
+    snap.docs.forEach(x=>{if(!x.exists)return;const raw=(x.data()||{}).dates||{};o[x.id]=flatAtt(raw);
+      if(Object.keys(raw).some(k=>!DATE_RE.test(k)))broken.push(x.id)}); // wrapped by an older version
+    for(const[sid,ov]of Object.entries(attOverlay)){const m=o[sid]={...(o[sid]||{})};
+      for(const[k,{v,t}]of Object.entries(ov)){
+        if(recEq(m[k],v)||now-t>120000){delete ov[k];continue} // server has it (or gave up after 2 min)
+        if(v)m[k]=v;else delete m[k]}
+      if(!Object.keys(ov).length)delete attOverlay[sid]}
+    S.att=o;render();
+    broken.forEach(k=>db.collection('attendance').doc(k).set({dates:{...o[k]}}).catch(fail)); // save the repaired, flat version
+  },fail);
   setSync();
 }
 function setSync(){$('#syncnote').textContent=db?'Dữ liệu được lưu trên trang này và đồng bộ giữa các thiết bị bạn mở.':'Dữ liệu đang lưu trong trình duyệt này.'}
@@ -634,10 +662,10 @@ function saveClass(){
   for(const[id]of clsStudents()){const cur=(S.att[id]||{})[date];const ex=rec(cur);const want=c.draft[id];
     const nv=want?{s:want,n}:null;if(nv&&ex&&ex.note)nv.note=ex.note;
     if((!ex&&!nv)||(ex&&nv&&ex.s===nv.s&&ex.n===nv.n))continue;
-    prevAll[id]=cur??null;const m={...(S.att[id]||{})};if(nv)m[date]=nv;else delete m[date];S.att[id]=m;writeAtt(id);changed++}
+    prevAll[id]=cur??null;const m={...(S.att[id]||{})};if(nv)m[date]=nv;else delete m[date];S.att[id]=m;saveAttDays(id,{[date]:nv});changed++}
   if(!db)saveLocal();c.dirty=false;render();
   toast(changed?`Đã lưu điểm danh ${changed} học viên — ${dLabel(date)}, ${fmtN(n)} buổi.`:'Không có thay đổi nào.',changed?()=>{
-    for(const[id,v]of Object.entries(prevAll)){const m={...(S.att[id]||{})};if(v)m[date]=v;else delete m[date];S.att[id]=m;writeAtt(id)}
+    for(const[id,v]of Object.entries(prevAll)){const m={...(S.att[id]||{})};if(v)m[date]=v;else delete m[date];S.att[id]=m;saveAttDays(id,{[date]:v})}
     if(!db)saveLocal();ui.cls.dirty=false;render()}:null);
 }
 
@@ -958,7 +986,7 @@ $('#mCopy').onclick=async()=>{const ta=$('#mText');
 /* ---------- attendance ---------- */
 function applyAtt(id,changes){const cur={...(S.att[id]||{})};const prev={};
   for(const[k,v]of Object.entries(changes)){prev[k]=cur[k]??null;if(v)cur[k]=v;else delete cur[k]}
-  S.att[id]=cur;writeAtt(id);if(!db)saveLocal();render();return prev}
+  S.att[id]=cur;saveAttDays(id,changes);render();return prev}
 function refocusDay(k){const el=document.querySelector(`[data-day="${k}"]`);el&&el.focus()}
 function onDay(k){const id=ui.open;
   if(ui.attMode==='quick'){const ex=(S.att[id]||{})[k];applyAtt(id,{[k]:ex?null:{s:'p',n:1}});refocusDay(k);return}
