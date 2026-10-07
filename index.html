@@ -327,6 +327,15 @@ table.st .cash{color:var(--jade);font-weight:600} table.st .owe{color:var(--red)
 .pkhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
 .convert{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px solid var(--blue);background:var(--blue-soft);color:var(--ink);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:14px}
 .convert span{flex:1;min-width:200px}
+.btn.undo{color:var(--muted);padding:5px 9px}
+.btn.undo:hover{color:var(--red);border-color:var(--red)}
+.ulist{list-style:none;margin:0 0 12px;padding:0;border:1px solid var(--line);border-radius:8px}
+.ulist li{border-top:1px solid var(--line)}
+.ulist li:first-child{border-top:0}
+.ulist label{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;font-size:14px}
+.ulist input{width:18px;height:18px;flex:none;accent-color:var(--red)}
+.ulist .t{flex:1;min-width:0}
+.ulist small{display:block;color:var(--muted);font-size:12px}
 textarea#mText{width:100%;min-height:130px;border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:10px;line-height:1.5}
 </style>
 </head>
@@ -485,6 +494,20 @@ textarea#mText{width:100%;min-height:130px;border:1px solid var(--line);backgrou
   </div>
 </dialog>
 
+<!-- revert-to-unpaid dialog -->
+<dialog id="dUndo">
+  <div class="dlg">
+    <h2 id="uTitle">Chuyển về chưa đóng</h2>
+    <p class="sub" id="uSub">Chọn khoản tiền cần huỷ. Khoản bị huỷ sẽ bị xoá khỏi lịch sử đóng tiền.</p>
+    <ul class="ulist" id="uList"></ul>
+    <div class="note" id="uInfo"></div>
+    <div class="dlgfoot">
+      <button class="btn" data-close>Huỷ</button>
+      <button class="btn danger" id="uGo">Chuyển về chưa đóng</button>
+    </div>
+  </div>
+</dialog>
+
 <div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" hidden>Hoàn tác</button></div>
 
 <script>
@@ -616,6 +639,16 @@ const pkSt=p=>p.owe<0.5?'paid':p.paid>0.5?'partial':p.start?'owed':'upcoming';
 const pkTxt=p=>p.owe<0.5?'Đã đóng':p.paid>0.5?'Thiếu '+short(p.owe):p.start?'Chưa đóng':'Chưa tới';
 const dShort=d=>d?`${+d.slice(8)}/${+d.slice(5,7)}`:'—';
 function nextPackDue(sid){const P=packInfo(sid);return P.packs.find(p=>p.owe>0.5)||null}
+// Payments that belong to a student's row in a given month — what "Chuyển về chưa đóng" may remove.
+function payCands(sid,mk){const s=stu(sid);if(!s)return{tagged:[],dated:[]};const r=status(sid,mk);
+  const all=Object.entries(S.payments).filter(([,p])=>p.sid===sid).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));let tagged;
+  if(isPack(s)){const idx=new Set((r.packs.length?r.packs:[]).map(p=>p.i));tagged=all.filter(([,p])=>p.forMonth===mk||(p.pack!=null&&idx.has(p.pack)))}
+  else if(isCK(s))tagged=all.filter(([,p])=>p.forMonth===mk);
+  else tagged=all.filter(([,p])=>(p.type==='month'&&p.month===mk)||(p.type==='course'&&mDiff(p.month,mk)>=0&&mDiff(p.month,mk)<(+p.months||1)));
+  const ids=new Set(tagged.map(([i])=>i));
+  const dated=r.paid>0.5?all.filter(([i,p])=>!ids.has(i)&&(p.date||'').startsWith(mk)):[];
+  return{tagged,dated,r}}
+const canUnpay=(sid,mk)=>{const c=payCands(sid,mk);return c.tagged.length>0||c.dated.length>0};
 function packAfter(P,after){let idx=Math.floor(after/P.per+1e-9),pos=after-idx*P.per;if(pos<1e-9&&after>0){idx--;pos=P.per}return{idx,pos,paidOk:P.paid>=(idx+1)*P.fee-0.5}}
 const active=(s,mk)=>s&&mk>=(s.start||'0000-00')&&(!s.end||mk<=s.end);
 function cInfo(s){const c=s.course||{};const sessions=Math.max(1,+c.sessions||1);const total=+c.total||0;const per=Math.max(0.5,+s.sess||DEF_SESS);const start=s.start||CUR;const months=Math.ceil(sessions/per);
@@ -806,14 +839,14 @@ function renderMonth(rs){
         <div><div class="name">${esc(s.name)}<span class="tag pk">Gói ${fmtN(P.per)} buổi</span></div><div class="sub">${esc([s.group,days].filter(Boolean).join(' · ')||'—')}</div></div>
         <div class="sess">Đợt ${c.i+1}: <b>${fmtN(c.learned)}/${fmtN(P.per)}</b> buổi<div class="meter"><i style="width:${pct2}%"></i></div><span class="sub">${mLabel(mk)} học ${fmtN(a.learned)} buổi${a.a?` · vắng ${fmtN(a.a)}`:''}</span></div>
         <div class="money">${money}</div>
-        <div class="rowend"><span class="st ${chipSt}">${chipTx}</span>${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}" title="Ghi nhận đã đóng ${VND(r.owe)}">Đã đóng</button>`:''}</div>
+        <div class="rowend"><span class="st ${chipSt}">${chipTx}</span>${canUnpay(id,mk)?`<button class="btn sm undo" data-unpay="${id}" title="Huỷ khoản đã đóng, chuyển về chưa đóng">↺ Chưa đóng</button>`:''}${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}" title="Ghi nhận đã đóng ${VND(r.owe)}">Đã đóng</button>`:''}</div>
       </div>`}
     let extra='';if(r.ck){const cs=cSummary(id);extra=`<br><span class="sub">Khoá: ${fmtN(cs.learned)}/${cs.sessions} buổi · đã trả ${fmtN(cs.paidSess)} buổi</span>`}
     return `<div class="row" data-open="${id}" tabindex="0" role="button" aria-label="Mở ${esc(s.name)}">
       <div><div class="name">${esc(s.name)}${r.ck?'<span class="tag ck">Khoá buổi</span>':r.course?'<span class="tag">Trọn gói</span>':''}</div><div class="sub">${esc([s.group,days].filter(Boolean).join(' · ')||'—')}</div></div>
       <div class="sess">Đã học <b>${fmtN(a.learned)}/${r.ck?fmtN(r.sess||sess):sess}</b> buổi${a.a?` · vắng ${fmtN(a.a)}`:''}<div class="meter"><i style="width:${pct}%"></i></div>${extra}</div>
       <div class="money">Phải đóng <b>${VND(r.due)}</b><br>Đã đóng <b>${VND(r.paid)}</b>${r.owe>0.5?` · còn <b style="color:var(--red)">${VND(r.owe)}</b>`:''}</div>
-      <div class="rowend"><span class="st ${r.st}">${ST_TXT[r.st]}</span>${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}" title="Ghi nhận đã đóng ${VND(r.owe)} cho ${mLow(mk)}">Đã đóng</button>`:''}</div>
+      <div class="rowend"><span class="st ${r.st}">${ST_TXT[r.st]}</span>${canUnpay(id,mk)?`<button class="btn sm undo" data-unpay="${id}" title="Huỷ khoản đã đóng, chuyển về chưa đóng">↺ Chưa đóng</button>`:''}${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}" title="Ghi nhận đã đóng ${VND(r.owe)} cho ${mLow(mk)}">Đã đóng</button>`:''}</div>
     </div>`}).join('')+`</div>`;
   $('#view').innerHTML=h;
 }
@@ -948,7 +981,7 @@ function renderDrawer(){
       <div class="legend cal-lg"><span style="--c:var(--jade)">✓ Có mặt</span><span style="--c:var(--red)">✕ Vắng</span><span style="--c:var(--amber)">P Có phép</span><span style="--c:var(--blue)">Bù Học bù</span></div>
       <p class="hint">${HINT[ui.attMode]} Ô viền nét đứt là ngày có lịch học; chấm nhỏ dưới số là ngày có ghi chú.${pkK?' Chữ Đ2, Đ3… ở góc ô là ngày bắt đầu đợt mới.':''}</p>
     </div>
-    <div class="card"><h3>Tiền ${mLow(mk)}<span class="spacer"></span>${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}">Đã đóng ${short(r.owe)}</button>`:''}</h3>
+    <div class="card"><h3>Tiền ${mLow(mk)}<span class="spacer"></span>${canUnpay(id,mk)?`<button class="btn sm undo" data-unpay="${id}">↺ Chưa đóng</button>`:''}${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}">Đã đóng ${short(r.owe)}</button>`:''}</h3>
       <div class="kv"><span>Phải đóng${ck?` (${fmtN(r.sess)} buổi)`:pkK&&r.packs.length?` (đợt ${r.packs.map(p=>p.i+1).join(', ')} bắt đầu trong tháng)`:''}</span><b>${VND(r.due)}</b><span>Đã đóng${r.course?' (gồm phần chia từ gói)':ck?' (trừ từ tiền đã góp)':''}</span><b class="ok">${VND(r.paid)}</b><span>Còn nợ</span><b class="${r.owe>0.5?'owe':''}">${VND(r.owe)}</b></div>
     </div>
     <div class="card"><h3>Lịch sử đóng tiền<span class="spacer"></span><button class="btn sm primary" data-payfor="${id}">+ Ghi nhận</button></h3>${payList}</div>`;
@@ -1048,16 +1081,36 @@ $('#pAmount').oninput=()=>{amtTouched=true;info()};
 $('#pSave').onclick=()=>{
   const amt=+$('#pAmount').value;if(!(amt>0)){$('#pAmount').focus();toast('Nhập số tiền lớn hơn 0.');return}
   const p={sid:$('#pSid').value,type:pType,amount:amt,date:$('#pDate').value||TODAY,note:$('#pNote').value.trim()};
-  if(pType!=='ck'&&pType!=='pk')p.month=$('#pMonth').value;if(pType==='course')p.months=Math.max(1,+$('#pMonths').value||1);
+  if(pType!=='ck'&&pType!=='pk')p.month=$('#pMonth').value;
+  if(pType==='pk'){const nx=nextPackDue(p.sid);if(nx){p.pack=nx.i;if(nx.start)p.forMonth=nx.start.slice(0,7)}}
+  if(pType==='ck')p.forMonth=ui.month;if(pType==='course')p.months=Math.max(1,+$('#pMonths').value||1);
   const pid=uid();write('payments',pid,p);$('#dPay').close();render();
   toast(`Đã ghi nhận ${VND(amt)} — ${stu(p.sid).name}.`,()=>{write('payments',pid,null);render()});
 };
 function quickPay(id){
   const mk=ui.month,r=status(id,mk);if(r.owe<=0.5)return;
-  const p=r.pk?{sid:id,type:'pk',amount:Math.round(r.owe),date:TODAY,note:''}:r.ck?{sid:id,type:'ck',amount:Math.round(r.owe),date:TODAY,note:`Góp cho ${mLow(mk)}`}:{sid:id,type:'month',month:mk,amount:Math.round(r.owe),date:TODAY,note:''};
+  const firstOwing=r.pk?(r.packs.find(x=>x.owe>0.5)||{}).i:null;
+  const p=r.pk?{sid:id,type:'pk',amount:Math.round(r.owe),date:TODAY,note:'',forMonth:mk,...(firstOwing!=null?{pack:firstOwing}:{})}:r.ck?{sid:id,type:'ck',amount:Math.round(r.owe),date:TODAY,note:`Góp cho ${mLow(mk)}`,forMonth:mk}:{sid:id,type:'month',month:mk,amount:Math.round(r.owe),date:TODAY,note:''};
   const pid=uid();write('payments',pid,p);render();
   toast(`${stu(id).name}: đã đóng ${VND(r.owe)} cho ${mLow(mk)}.`,()=>{write('payments',pid,null);render()});
 }
+
+/* ---------- revert to unpaid ---------- */
+let uCtx=null;
+function removePays(ids,label){const old={};ids.forEach(i=>{old[i]=S.payments[i];write('payments',i,null)});render();
+  toast(label,()=>{Object.entries(old).forEach(([i,v])=>v&&write('payments',i,v));render()})}
+function unpay(sid){const mk=ui.month;const c=payCands(sid,mk);const s=stu(sid);
+  if(c.tagged.length===1&&!c.dated.length){const[pid,p]=c.tagged[0];removePays([pid],`${s.name}: đã chuyển về chưa đóng (huỷ ${VND(p.amount)}).`);return}
+  uCtx={sid,mk};$('#uTitle').textContent=`${s.name} — chuyển về chưa đóng`;
+  const pre=c.tagged.length?new Set(c.tagged.map(([i])=>i)):new Set(c.dated.slice(0,1).map(([i])=>i));
+  $('#uList').innerHTML=[...c.tagged,...c.dated].map(([pid,p])=>{const d=payDesc(p);
+    return `<li><label><input type="checkbox" value="${pid}" ${pre.has(pid)?'checked':''}><span class="t">${d.t}<small>Đóng ngày ${dLabel(p.date)}${d.sub?' · '+d.sub:''}${p.note?' · '+esc(p.note):''}</small></span><b>${VND(p.amount)}</b></label></li>`}).join('');
+  uInfo();$('#dUndo').showModal()}
+function uInfo(){const sel=$$('#uList input:checked');const tot=sel.reduce((t,c)=>t+(+(S.payments[c.value]||{}).amount||0),0);
+  $('#uInfo').textContent=sel.length?`Sẽ huỷ ${sel.length} khoản, tổng ${VND(tot)}. Bạn vẫn có thể bấm Hoàn tác ngay sau đó.`:'Chưa chọn khoản nào.';$('#uGo').disabled=!sel.length}
+$('#uList').addEventListener('change',uInfo);
+$('#uGo').onclick=()=>{const ids=$$('#uList input:checked').map(c=>c.value);if(!ids.length)return;const s=stu(uCtx.sid);$('#dUndo').close();
+  removePays(ids,`${s.name}: đã chuyển về chưa đóng (huỷ ${ids.length} khoản).`)};
 
 /* ---------- reminder message ---------- */
 function openMsg(it){$('#mTitle').textContent=`Nhắc ${stu(it.id).name}`;$('#mText').value=msgFor(it);$('#dMsg').showModal()}
@@ -1125,6 +1178,7 @@ $$('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 
 $('#view').addEventListener('click',e=>{const t=e.target;
   const q=t.closest('[data-quick]');if(q){e.stopPropagation();quickPay(q.dataset.quick);return}
+  const up=t.closest('[data-unpay]');if(up){e.stopPropagation();unpay(up.dataset.unpay);return}
   const cg=t.closest('[data-cls]');if(cg){if(cg.dataset.cls!==ui.cls.g&&leaveClassOk()){ui.cls.g=cg.dataset.cls;ui.cls.dirty=false;render()}return}
   const cd=t.closest('[data-cday]');if(cd){if(leaveClassOk()){const k=+cd.dataset.cday;if(!k)ui.cls.date=TODAY;else{const[y,m,d]=ui.cls.date.split('-').map(Number);const x=new Date(y,m-1,d+k);ui.cls.date=`${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`}ui.cls.dirty=false;render()}return}
   const cn=t.closest('[data-cn]');if(cn){ui.cls.n=+cn.dataset.cn;ui.cls.dirty=true;render();return}
@@ -1159,6 +1213,7 @@ $('#drawer').addEventListener('click',e=>{const t=e.target;
   const m=t.closest('[data-m]');if(m){ui.month=m.dataset.m;render();return}
   const mv=t.closest('[data-mv]');if(mv){ui.month=addM(ui.month,+mv.dataset.mv);render();return}
   const q=t.closest('[data-quick]');if(q){quickPay(q.dataset.quick);return}
+  const up=t.closest('[data-unpay]');if(up){unpay(up.dataset.unpay);return}
   const ed=t.closest('[data-edit]');if(ed){openStudent(ed.dataset.edit);return}
   const pf=t.closest('[data-payfor]');if(pf){openPay(pf.dataset.payfor);return}
   const dp=t.closest('[data-delpay]');if(dp){const pid=dp.dataset.delpay;const old=S.payments[pid];if(!old)return;
