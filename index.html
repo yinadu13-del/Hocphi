@@ -318,6 +318,15 @@ table.st .cash{color:var(--jade);font-weight:600} table.st .owe{color:var(--red)
 .savebar .cnt{flex:1;color:var(--muted)}
 .savebar .cnt b{color:var(--ink)}
 .savebar .dirty{color:var(--amber);font-weight:600}
+.tag.pk{color:var(--amber);background:var(--amber-soft)}
+.day .pkt{position:absolute;top:2px;left:4px;font-size:9px;font-weight:700;line-height:1;opacity:.9}
+.day:not(.p):not(.m) .pkt{color:var(--blue)}
+.pips{display:flex;gap:4px;margin:8px 0 10px}
+.pips i{flex:1;height:12px;border-radius:3px;background:var(--line);position:relative;overflow:hidden}
+.pips i b{position:absolute;inset:0 auto 0 0;background:var(--jade)}
+.pkhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
+.convert{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px solid var(--blue);background:var(--blue-soft);color:var(--ink);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:14px}
+.convert span{flex:1;min-width:200px}
 textarea#mText{width:100%;min-height:130px;border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:10px;line-height:1.5}
 </style>
 </head>
@@ -366,8 +375,9 @@ textarea#mText{width:100%;min-height:130px;border:1px solid var(--line);backgrou
     </div>
     <div class="field kind"><span class="lbl">Hình thức học phí</span>
       <div class="seg" id="fKind">
-        <button data-v="month" aria-pressed="true">Đóng theo tháng</button>
-        <button data-v="ck" aria-pressed="false">Khoá theo buổi</button>
+        <button data-v="pack" aria-pressed="true">Gói 8 buổi</button>
+        <button data-v="month" aria-pressed="false">Theo tháng lịch</button>
+        <button data-v="ck" aria-pressed="false">Khoá dài</button>
       </div>
     </div>
     <div id="fCourseBox" class="hide">
@@ -382,10 +392,11 @@ textarea#mText{width:100%;min-height:130px;border:1px solid var(--line);backgrou
       </div>
     </div>
     <div class="two">
-      <div class="field" id="fFeeWrap"><label for="fFee">Học phí / tháng (đ)</label><input id="fFee" type="number" min="0" step="10000"></div>
-      <div class="field"><label for="fSess">Số buổi / tháng</label><input id="fSess" type="number" min="1" step="1"></div>
+      <div class="field" id="fFeeWrap"><label for="fFee" id="fFeeLbl">Học phí / tháng (đ)</label><input id="fFee" type="number" min="0" step="10000"></div>
+      <div class="field"><label for="fSess" id="fSessLbl">Số buổi / tháng</label><input id="fSess" type="number" min="1" step="1"></div>
     </div>
     <div class="note hide" id="fCInfo"></div>
+    <div class="note hide" id="fPInfo">Học đủ số buổi của gói là sang đợt mới, không phụ thuộc tháng trên lịch. Học viên đóng tiền ngày nào cũng được — web tự trừ dần theo từng đợt.</div>
     <div class="field"><span class="lbl">Lịch học trong tuần</span>
       <div class="days" id="fDays"></div>
     </div>
@@ -519,6 +530,7 @@ function fail(e){console.error(e);const c=e&&e.code;toast(c==='quota_exceeded'?'
 const mapCol=c=>c==='attendance'?'att':c;
 const queues={};
 function write(col,id,data){ // data null = delete
+  PKC={};
   const local=col==='attendance'&&data?flatAtt(data):data; // keep local attendance flat, never the {dates} wrapper
   if(local===null)delete S[mapCol(col)][id]; else S[mapCol(col)][id]=local;
   if(!db){saveLocal();return Promise.resolve()}
@@ -581,6 +593,30 @@ function learnedRange(sid,from,toExcl){const d=S.att[sid]||{};let n=0;for(const[
 /* ---------- money logic ---------- */
 const stu=id=>S.students[id];
 const isCK=s=>!!(s&&s.course);
+const isPack=s=>!!(s&&!s.course&&s.kind==='pack');
+const kindOf=s=>isCK(s)?'ck':isPack(s)?'pack':'month';
+/* Gói N buổi, cuốn chiếu: each package = s.sess sessions for s.fee. Sessions are counted in date order;
+   when a package is used up the next one starts on the next class day. Every payment of the student
+   is applied to packages in order (đợt 1, đợt 2, …). A package's fee falls due in the month it starts. */
+let PKC={};
+function packInfo(sid){if(PKC[sid])return PKC[sid];
+  const s=stu(sid);const per=Math.max(0.5,+s.sess||DEF_SESS),fee=+s.fee||0,price=fee/per,from=s.start||'0000-00';
+  const days=Object.entries(S.att[sid]||{}).filter(([k])=>k.slice(0,7)>=from).map(([k,v])=>[k,rec(v)]).filter(([,x])=>x&&(x.s==='p'||x.s==='m')).sort((a,b)=>a[0]<b[0]?-1:1);
+  const packs=[];let cum=0;const mk=i=>packs[i]||(packs[i]={i,start:null,end:null,learned:0,days:[]});
+  for(const[k,x]of days){let n=x.n;let guard=0;
+    while(n>1e-9&&guard++<50){const idx=Math.floor(cum/per+1e-9);const pk=mk(idx);if(!pk.start)pk.start=k;if(!pk.days.includes(k))pk.days.push(k);
+      const take=Math.min(n,(idx+1)*per-cum);pk.learned+=take;cum+=take;n-=take;if(pk.learned>=per-1e-9)pk.end=k}}
+  const paid=Object.values(S.payments).reduce((t,p)=>t+(p.sid===sid?(+p.amount||0):0),0);
+  const curIdx=packs.length?(packs[packs.length-1].end?packs.length:packs.length-1):0;mk(curIdx);
+  while(fee>0&&packs.length*fee<paid-0.5&&packs.length<curIdx+24)mk(packs.length); // packages paid in advance
+  packs.forEach(p=>{p.paid=Math.max(0,Math.min(fee,paid-p.i*fee));p.owe=Math.max(0,fee-p.paid)});
+  return PKC[sid]={per,fee,price,packs,cur:packs[curIdx],learned:cum,paid,paidSess:price?paid/price:0,balance:(price?paid/price:0)-cum};
+}
+const pkSt=p=>p.owe<0.5?'paid':p.paid>0.5?'partial':p.start?'owed':'upcoming';
+const pkTxt=p=>p.owe<0.5?'Đã đóng':p.paid>0.5?'Thiếu '+short(p.owe):p.start?'Chưa đóng':'Chưa tới';
+const dShort=d=>d?`${+d.slice(8)}/${+d.slice(5,7)}`:'—';
+function nextPackDue(sid){const P=packInfo(sid);return P.packs.find(p=>p.owe>0.5)||null}
+function packAfter(P,after){let idx=Math.floor(after/P.per+1e-9),pos=after-idx*P.per;if(pos<1e-9&&after>0){idx--;pos=P.per}return{idx,pos,paidOk:P.paid>=(idx+1)*P.fee-0.5}}
 const active=(s,mk)=>s&&mk>=(s.start||'0000-00')&&(!s.end||mk<=s.end);
 function cInfo(s){const c=s.course||{};const sessions=Math.max(1,+c.sessions||1);const total=+c.total||0;const per=Math.max(0.5,+s.sess||DEF_SESS);const start=s.start||CUR;const months=Math.ceil(sessions/per);
   return {sessions,total,price:total/sessions,per,start,months,end:addM(start,months-1),mode:c.mode==='actual'?'actual':'plan'}}
@@ -600,16 +636,19 @@ function alloc(sid,mk){let sum=0,course=false;
   return {sum,course}}
 function status(sid,mk){
   const s=stu(sid);let due,paid,course=false,ck=false,sess=0;
-  if(isCK(s)){const{before,here,c}=cMonth(sid,mk);due=here*c.price;sess=here;paid=Math.max(0,Math.min(due,paidCK(sid)-before*c.price));ck=true}
+  let pk=false,packs=[];
+  if(isPack(s)){const P=packInfo(sid);packs=P.packs.filter(p=>p.start&&p.start.slice(0,7)===mk);due=packs.length*P.fee;paid=packs.reduce((t,p)=>t+p.paid,0);pk=true}
+  else if(isCK(s)){const{before,here,c}=cMonth(sid,mk);due=here*c.price;sess=here;paid=Math.max(0,Math.min(due,paidCK(sid)-before*c.price));ck=true}
   else{due=active(s,mk)?(+s.fee||0):0;const a=alloc(sid,mk);paid=a.sum;course=a.course}
   let st;if(due<0.5&&paid<0.5)st='none';else if(paid>=due-0.5)st='paid';else if(paid>0.5)st='partial';else st=mk>CUR?'upcoming':'owed';
-  return {due,paid,course,ck,sess,owe:Math.max(0,due-paid),st};
+  return {due,paid,course,ck,pk,packs,sess,owe:Math.max(0,due-paid),st};
 }
 const ST_TXT={paid:'Đã đóng',partial:'Đóng thiếu',owed:'Chưa đóng',upcoming:'Chưa tới',none:'Không học'};
 function nextCKDue(sid){ // first month still owing money in a per-session course
   const c=cInfo(stu(sid));for(let i=0;i<60;i++){const mk=addM(c.start,i);const r=status(sid,mk);if(r.owe>0.5)return{mk,owe:r.owe,sess:r.owe/c.price};if(c.mode==='plan'&&i>=c.months)break;if(c.mode==='actual'&&mk>=CUR)break}
   return null}
 function payDesc(p){
+  if(isPack(stu(p.sid))){const P=packInfo(p.sid);const t=p.type==='month'&&p.month?`Học phí ${mLow(p.month)}`:p.type==='course'?`Trọn gói ${p.months} tháng`:'Đóng học phí gói';return{t,sub:P.price?`= ${fmtN(Math.round((+p.amount||0)/P.price*10)/10)} buổi`:''}}
   if(p.type==='ck'){const s=stu(p.sid);const c=s&&isCK(s)?cInfo(s):null;return{t:'Góp học phí khoá',sub:c&&c.price?`= ${fmtN(Math.round((+p.amount||0)/c.price*10)/10)} buổi`:''}}
   if(p.type==='course')return{t:`Trọn gói ${p.months} tháng (${mShort(p.month)} – ${mShort(addM(p.month,(+p.months||1)-1))})`,sub:`≈ ${VND((+p.amount||0)/(+p.months||1))}/tháng`};
   return{t:`Học phí ${mLow(p.month)}`,sub:''}}
@@ -637,7 +676,8 @@ function renderClass(){
   const nchip=[0.5,1,1.5,2,3].map(n=>`<button class="chip" data-cn="${n}" aria-pressed="${c.n===n}">${fmtN(n)}</button>`).join('');
   const cnt={p:0,a:0,e:0,m:0,none:0};list.forEach(([id])=>{const v=c.draft[id];v?cnt[v]++:cnt.none++});
   const items=list.map(([id,s])=>{const v=c.draft[id]||'';const sch=(s.days||[]).includes(wd);
-    let info;if(isCK(s)){const cs=cSummary(id);info=`Khoá ${fmtN(cs.learned)}/${cs.sessions} buổi · đã trả ${fmtN(Math.round(cs.paidSess*10)/10)}`+(cs.balance<=remindN&&cs.owedTotal>0.5?` · <span class="w">còn ${fmtN(Math.max(0,Math.round(cs.balance*10)/10))} buổi đã trả</span>`:'')}
+    let info;if(isPack(s)){const P=packInfo(id),cu=P.cur;const nx=P.packs[cu.i+1];const nxOwe=nx?nx.owe:P.fee;info=`Đợt ${cu.i+1}: ${fmtN(cu.learned)}/${fmtN(P.per)} buổi`+(cu.start&&cu.owe>0.5?` · <span class="w">đợt này chưa đóng đủ</span>`:cu.learned>=P.per-remindN&&nxOwe>0.5?` · <span class="w">sắp sang đợt mới, chưa đóng</span>`:!cu.start&&cu.owe>0.5&&cu.i>0?` · <span class="w">buổi tới vào đợt ${cu.i+1}, chưa đóng</span>`:'')}
+    else if(isCK(s)){const cs=cSummary(id);info=`Khoá ${fmtN(cs.learned)}/${cs.sessions} buổi · đã trả ${fmtN(Math.round(cs.paidSess*10)/10)}`+(cs.balance<=remindN&&cs.owedTotal>0.5?` · <span class="w">còn ${fmtN(Math.max(0,Math.round(cs.balance*10)/10))} buổi đã trả</span>`:'')}
     else{const a=attStats(id,c.date.slice(0,7));const sess=+s.sess||DEF_SESS;info=`Tháng này ${fmtN(a.learned)}/${sess} buổi`+(sess-a.learned<=remindN?` · <span class="w">sắp hết buổi</span>`:'')}
     if(!sch&&(s.days||[]).length)info+=' · không có lịch hôm nay';
     return `<div class="ri ${v}"><button class="rname" data-rtoggle="${id}" aria-pressed="${v==='p'}" aria-label="${esc(s.name)}: ${v?ATT[v].t:'chưa điểm danh'}. Chạm để ${v==='p'?'bỏ':'đánh dấu có mặt'}"><span class="rcheck">${v?ATT[v].k:''}</span><span><b>${esc(s.name)}</b><small>${info}</small></span></button>
@@ -674,6 +714,14 @@ const LV={red:0,amber:1,blue:2};
 function reminders(){
   const out=[];
   for(const[id,s]of Object.entries(S.students)){
+    if(isPack(s)){if(s.end&&s.end<CUR)continue;const P=packInfo(id);const c=P.cur;
+      const doneUnpaid=P.packs.filter(p=>p.end&&p!==c&&p.owe>0.5);
+      if(doneUnpaid.length){const amt=doneUnpaid.reduce((t,p)=>t+p.owe,0);out.push({id,lv:'red',kind:'pkold',title:'Nợ đợt đã học xong',text:`Đợt ${doneUnpaid.map(p=>p.i+1).join(', ')} · còn nợ <b>${VND(amt)}</b>`,amount:amt,packs:doneUnpaid,P})}
+      if(c.start&&c.owe>0.5)out.push({id,lv:c.learned>=P.per/2?'red':'amber',kind:'pkcur',title:`Đợt ${c.i+1} đã bắt đầu, chưa đóng đủ`,text:`Từ ${dLabel(c.start)} · đã học ${fmtN(c.learned)}/${fmtN(P.per)} buổi · còn <b>${VND(c.owe)}</b>`,amount:c.owe,pack:c,P});
+      else if(!c.start&&c.i>0&&c.owe>0.5)out.push({id,lv:'amber',kind:'pkdone',title:`Đã học xong đợt ${c.i}`,text:`Đợt ${c.i+1} chưa đóng (<b>${VND(c.owe)}</b>) — thu trước buổi tới`,amount:c.owe,pack:c,P});
+      else if(c.start&&c.learned>=P.per-remindN){const nx=P.packs[c.i+1];const nxOwe=nx?nx.owe:P.fee;
+        if(nxOwe>0.5)out.push({id,lv:'amber',kind:'pknext',title:`Sắp hết đợt ${c.i+1}`,text:`Đã học ${fmtN(c.learned)}/${fmtN(P.per)} buổi · đợt ${c.i+2} chưa đóng (<b>${VND(nxOwe)}</b>)`,amount:nxOwe,pack:c,P})}
+      continue}
     const start=s.start||CUR;const past=[];let pastAmt=0;
     for(let mk=start,i=0;mk<CUR&&i<48;mk=addM(mk,1),i++){const r=status(id,mk);if(r.owe>0.5){past.push(mk);pastAmt+=r.owe}}
     if(pastAmt>0)out.push({id,lv:'red',kind:'old',title:'Nợ học phí tháng trước',text:`Còn nợ <b>${VND(pastAmt)}</b> (${past.map(mShort).join(', ')})`,amount:pastAmt,month:past[0],months:past});
@@ -697,6 +745,10 @@ function reminders(){
 function msgFor(it){
   const s=stu(it.id),n=s.name;
   switch(it.kind){
+    case'pkold':return `Chào ${n}, cô nhắc em học phí đợt ${it.packs.map(p=>p.i+1).join(', ')} (gói ${fmtN(it.P.per)} buổi) còn thiếu ${VND(it.amount)}. Em sắp xếp đóng giúp cô nhé. Cảm ơn em!`;
+    case'pkcur':return `Chào ${n}, em đã bắt đầu đợt học mới từ ngày ${dLabel(it.pack.start)} (đã học ${fmtN(it.pack.learned)}/${fmtN(it.P.per)} buổi). Học phí đợt này là ${VND(it.P.fee)}, em còn cần đóng ${VND(it.amount)}. Cảm ơn em!`;
+    case'pkdone':return `Chào ${n}, em đã học xong ${fmtN(it.P.per)} buổi của đợt ${it.pack.i}. Học phí đợt tiếp theo là ${VND(it.amount)}, em đóng trước buổi học tới giúp cô nhé. Cảm ơn em!`;
+    case'pknext':return `Chào ${n}, em đã học ${fmtN(it.pack.learned)}/${fmtN(it.P.per)} buổi của đợt này, sắp sang đợt mới. Học phí đợt tiếp theo là ${VND(it.amount)}, em chuẩn bị đóng giúp cô nhé. Cảm ơn em!`;
     case'old':return `Chào ${n}, cô nhắc em học phí ${it.months.length>1?'các tháng '+it.months.map(mShort).join(', '):'tháng '+mShort(it.months[0])} còn thiếu ${VND(it.amount)}. Em sắp xếp đóng giúp cô nhé. Cảm ơn em!`;
     case'cur':return `Chào ${n}, cô nhắc em học phí ${mLow(it.month)} là ${VND(it.due)}, em còn cần đóng ${VND(it.amount)}. Cảm ơn em!`;
     case'next':return `Chào ${n}, tháng này em đã học ${fmtN(it.learned)}/${it.sess} buổi. Học phí ${mLow(it.month)} là ${VND(it.amount)}, em đóng trước buổi học tới giúp cô nhé. Cảm ơn em!`;
@@ -709,6 +761,7 @@ function msgFor(it){
 
 /* ---------- render ---------- */
 function render(){
+  PKC={};
   const yearish=ui.tab==='year'||ui.tab==='stats';
   $('#mLabel').textContent=yearish?`Năm ${ui.month.slice(0,4)}`:mLabel(ui.month);
   $('#monthnav').classList.toggle('hide',ui.tab==='remind'||ui.tab==='class');
@@ -726,23 +779,35 @@ function sortedStudents(){
 const emptyAll=`<div class="list"><div class="empty"><p>Chưa có học viên nào. Thêm học viên đầu tiên để bắt đầu theo dõi học phí.</p><button class="btn primary" data-act="add">+ Thêm học viên</button></div></div>`;
 function renderMonth(rs){
   const mk=ui.month;if(!Object.keys(S.students).length){$('#view').innerHTML=emptyAll;return}
-  const rows=sortedStudents().map(([id])=>({id,s:stu(id),r:status(id,mk)})).filter(x=>x.r.st!=='none'||x.r.paid>0);
+  const rows=sortedStudents().map(([id])=>({id,s:stu(id),r:status(id,mk)})).filter(x=>x.r.st!=='none'||x.r.paid>0||(isPack(x.s)&&active(x.s,mk)));
   const tot={due:0,paid:0,owe:0,cnt:0};rows.forEach(x=>{tot.due+=x.r.due;tot.paid+=x.r.paid;tot.owe+=x.r.owe;if(x.r.owe>0.5)tot.cnt++});
   const f=ui.filter;
-  const shown=rows.filter(x=>f==='all'||(f==='owe'&&x.r.owe>0.5)||(f==='paid'&&x.r.st==='paid')||(f==='course'&&(x.r.course||x.r.ck)));
+  const shown=rows.filter(x=>f==='all'||(f==='owe'&&x.r.owe>0.5)||(f==='paid'&&x.r.st==='paid')||(f==='course'&&(x.r.course||x.r.ck))||(f==='pack'&&x.r.pk));
   const chip=(v,t)=>`<button class="chip" data-filter="${v}" aria-pressed="${f===v}">${t}</button>`;
   const urgent=rs.filter(x=>x.lv!=='blue').length;
-  let h=urgent?`<button class="banner" data-tabgo="remind"><span>Có ${urgent} việc cần nhắc học viên (nợ học phí, sắp hết buổi…)</span>Xem ›</button>`:'';
+  const monthly=Object.entries(S.students).filter(([,s])=>kindOf(s)==='month');let hideConv=false;try{hideConv=localStorage.getItem('so-hoc-phi-conv')==='1'}catch(e){}
+  let h=monthly.length&&!hideConv?`<div class="convert"><span>${monthly.length} học viên đang tính theo <b>tháng lịch</b>. Chuyển sang <b>gói ${DEF_SESS} buổi cuốn chiếu</b> (học đủ ${DEF_SESS} buổi mới sang đợt mới, đóng ngày nào cũng được)? Tiền và điểm danh cũ được giữ nguyên.</span><button class="btn sm primary" data-conv="all">Chuyển tất cả</button><button class="btn sm" data-conv="later">Để sau</button></div>`:'';
+  h+=urgent?`<button class="banner" data-tabgo="remind"><span>Có ${urgent} việc cần nhắc học viên (nợ học phí, sắp hết buổi…)</span>Xem ›</button>`:'';
   h+=`<section class="summary">
     <div><span>Phải thu ${mLow(mk)}</span><b>${VND(tot.due)}</b></div>
     <div class="ok"><span>Đã thu cho tháng này</span><b>${VND(tot.paid)}</b></div>
     <div class="owe"><span>Còn nợ</span><b>${VND(tot.owe)}</b></div>
     <div><span>Học viên chưa đóng đủ</span><b>${tot.cnt} / ${rows.length}</b></div></section>
-    <div class="chips">${chip('all','Tất cả')}${chip('owe','Còn nợ')}${chip('paid','Đã đóng')}${chip('course','Theo khoá')}</div>`;
+    <div class="chips">${chip('all','Tất cả')}${chip('owe','Còn nợ')}${chip('paid','Đã đóng')}${chip('pack','Gói buổi')}${chip('course','Theo khoá')}</div>`;
   if(!shown.length)h+=`<div class="list"><div class="empty"><p>Không có học viên nào khớp trong ${mLow(mk)}.</p></div></div>`;
   else h+=`<div class="list">`+shown.map(({id,s,r})=>{
     const a=attStats(id,mk);const sess=+s.sess||DEF_SESS;const pct=Math.min(100,a.learned/sess*100);
     const days=(s.days||[]).map(d=>DOW[d]).join(', ');
+    if(r.pk){const P=packInfo(id),c=P.cur;const pct2=Math.min(100,c.learned/P.per*100);
+      const chipSt=r.st!=='none'?r.st:pkSt(c);const chipTx=r.st!=='none'?ST_TXT[r.st]:`Đợt ${c.i+1}: ${pkTxt(c)}`;
+      const money=r.due?`${r.packs.map(p=>`Đợt ${p.i+1} từ ${dShort(p.start)}`).join(', ')} · phải đóng <b>${VND(r.due)}</b><br>Đã đóng <b>${VND(r.paid)}</b>${r.owe>0.5?` · còn <b style="color:var(--red)">${VND(r.owe)}</b>`:''}`
+        :`Không có đợt mới trong ${mLow(mk)}<br>Đợt ${c.i+1}: ${c.owe>0.5&&c.start?`còn <b style="color:var(--red)">${VND(c.owe)}</b>`:c.owe<0.5?'<b>đã đóng</b>':'chưa bắt đầu'}`;
+      return `<div class="row" data-open="${id}" tabindex="0" role="button" aria-label="Mở ${esc(s.name)}">
+        <div><div class="name">${esc(s.name)}<span class="tag pk">Gói ${fmtN(P.per)} buổi</span></div><div class="sub">${esc([s.group,days].filter(Boolean).join(' · ')||'—')}</div></div>
+        <div class="sess">Đợt ${c.i+1}: <b>${fmtN(c.learned)}/${fmtN(P.per)}</b> buổi<div class="meter"><i style="width:${pct2}%"></i></div><span class="sub">${mLabel(mk)} học ${fmtN(a.learned)} buổi${a.a?` · vắng ${fmtN(a.a)}`:''}</span></div>
+        <div class="money">${money}</div>
+        <div class="rowend"><span class="st ${chipSt}">${chipTx}</span>${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}" title="Ghi nhận đã đóng ${VND(r.owe)}">Đã đóng</button>`:''}</div>
+      </div>`}
     let extra='';if(r.ck){const cs=cSummary(id);extra=`<br><span class="sub">Khoá: ${fmtN(cs.learned)}/${cs.sessions} buổi · đã trả ${fmtN(cs.paidSess)} buổi</span>`}
     return `<div class="row" data-open="${id}" tabindex="0" role="button" aria-label="Mở ${esc(s.name)}">
       <div><div class="name">${esc(s.name)}${r.ck?'<span class="tag ck">Khoá buổi</span>':r.course?'<span class="tag">Trọn gói</span>':''}</div><div class="sub">${esc([s.group,days].filter(Boolean).join(' · ')||'—')}</div></div>
@@ -837,9 +902,22 @@ function courseCard(id){
     <table class="plan"><thead><tr><th>Tháng</th><th class="r">Kế hoạch</th><th class="r">Thực học</th><th class="r">Cần góp</th><th class="r">Trạng thái</th></tr></thead><tbody>${rows}</tbody></table>
   </div>`;
 }
+function packCard(id){
+  const P=packInfo(id),c=P.cur;const pips=[...Array(Math.ceil(P.per))].map((_,j)=>`<i><b style="width:${Math.max(0,Math.min(1,c.learned-j))*100}%"></b></i>`).join('');
+  const list=P.packs.slice(-12).reverse();const bal=P.balance;
+  return `<div class="card"><h3>Đợt ${c.i+1} · gói ${fmtN(P.per)} buổi<span class="spacer"></span><span class="st ${pkSt(c)}">${pkTxt(c)}</span></h3>
+    <div class="pkhead"><span class="big">${fmtN(c.learned)}<small> / ${fmtN(P.per)} buổi</small></span><span class="sub" style="font-size:13px;color:var(--muted)">${c.start?`Bắt đầu ${dLabel(c.start)}`:'Chưa bắt đầu — buổi học tới sẽ là buổi 1'}${c.paid>0.5?` · đã đóng ${VND(c.paid)}`:''}</span></div>
+    <div class="pips" role="img" aria-label="Đợt ${c.i+1}: đã học ${fmtN(c.learned)} trên ${fmtN(P.per)} buổi">${pips}</div>
+    <div class="kv"><span>Tổng đã học</span><b>${fmtN(P.learned)} buổi</b><span>Tổng đã đóng</span><b class="ok">${VND(P.paid)} (${fmtN(Math.round(P.paidSess*10)/10)} buổi)</b>
+      <span>${bal>=0?'Đã trả, chưa học':'Đã học, chưa trả'}</span><b class="${bal<0?'owe':''}">${fmtN(Math.abs(Math.round(bal*10)/10))} buổi${bal<0?' = '+VND(-bal*P.price):''}</b></div>
+    <table class="plan"><thead><tr><th>Đợt</th><th>Bắt đầu</th><th>Kết thúc</th><th class="r">Buổi</th><th class="r">Đã đóng</th><th class="r">Trạng thái</th></tr></thead><tbody>
+    ${list.map(p=>`<tr class="${p===c?'cur':''}"><td>${p.i+1}</td><td>${p.start?`<button data-m="${p.start.slice(0,7)}">${dShort(p.start)}</button>`:'—'}</td><td>${p.end?dShort(p.end):p.start?'đang học':'—'}</td><td class="r">${fmtN(p.learned)}/${fmtN(P.per)}</td><td class="r">${p.paid?VND(p.paid):'—'}</td><td class="r"><span class="st ${pkSt(p)}">${pkTxt(p)}</span></td></tr>`).join('')}</tbody></table>
+  </div>`;
+}
 function renderDrawer(){
   const id=ui.open,s=stu(id);if(!s){closeDrawer();return}
-  const mk=ui.month,y=mk.slice(0,4);const r=status(id,mk);const a=attStats(id,mk);const sess=+s.sess||DEF_SESS;const ck=isCK(s);
+  const mk=ui.month,y=mk.slice(0,4);const r=status(id,mk);const a=attStats(id,mk);const sess=+s.sess||DEF_SESS;const ck=isCK(s);const pkK=isPack(s);const P=pkK?packInfo(id):null;
+  const startMap={};if(P)P.packs.forEach(p=>{if(p.start)startMap[p.start]=p.i});
   const days=(s.days||[]);
   const[yy,mm]=mk.split('-').map(Number);const nd=new Date(yy,mm,0).getDate();const lead=(new Date(yy,mm-1,1).getDay()+6)%7;const marks=S.att[id]||{};
   for(const k of [...ui.picked])if(!k.startsWith(mk))ui.picked.delete(k);
@@ -847,7 +925,7 @@ function renderDrawer(){
   let cal=['T2','T3','T4','T5','T6','T7','CN'].map(d=>`<div class="dow">${d}</div>`).join('')+'<div class="pad"></div>'.repeat(lead);let planned=0;
   for(let d=1;d<=nd;d++){const key=`${mk}-${pad(d)}`;const sch=days.includes(new Date(yy,mm-1,d).getDay());if(sch)planned++;const v=rec(marks[key]);const pk=multi&&ui.picked.has(key);
     const lbl=`Ngày ${d}${v?': '+ATT[v.s].t+' '+fmtN(v.n)+' buổi'+(v.note?', '+v.note:''):sch?': có lịch học':''}${pk?', đã chọn':''}`;
-    cal+=`<button class="day ${v?v.s:''} ${sch&&!v?'sched':''} ${key===TODAY?'today':''} ${pk?'picked':''}" data-day="${key}" aria-label="${esc(lbl)}" ${multi?`aria-pressed="${pk}"`:''} title="${esc(lbl)}"><span class="n">${d}</span>${v?`<span class="mk">${ATT[v.s].k}${v.n!==1?' ×'+fmtN(v.n):''}</span>`:''}${v&&v.note?'<span class="nt"></span>':''}</button>`}
+    cal+=`<button class="day ${v?v.s:''} ${sch&&!v?'sched':''} ${key===TODAY?'today':''} ${pk?'picked':''}" data-day="${key}" aria-label="${esc(lbl)}" ${multi?`aria-pressed="${pk}"`:''} title="${esc(lbl)}">${startMap[key]!=null?`<span class="pkt" title="Bắt đầu đợt ${startMap[key]+1}">Đ${startMap[key]+1}</span>`:''}<span class="n">${d}</span>${v?`<span class="mk">${ATT[v.s].k}${v.n!==1?' ×'+fmtN(v.n):''}</span>`:''}${v&&v.note?'<span class="nt"></span>':''}</button>`}
   const amode=(v,t)=>`<button data-amode="${v}" aria-pressed="${ui.attMode===v}">${t}</button>`;
   const HINT={detail:'Chạm vào một ngày để chọn trạng thái và số buổi (0,5 · 1 · 2 buổi…).',quick:'Chạm 1 lần = có mặt 1 buổi. Chạm lại để bỏ.',multi:'Chạm để chọn nhiều ngày, rồi xác nhận một lần cho tất cả.'};
   const multibar=multi?`<div class="multibar"><b>Đã chọn ${ui.picked.size} ngày</b><button class="btn sm" id="pickSched">Chọn ngày có lịch</button><button class="btn sm" id="pickClear" ${ui.picked.size?'':'disabled'}>Bỏ chọn</button><button class="btn sm primary" id="pickGo" ${ui.picked.size?'':'disabled'}>Xác nhận ${ui.picked.size||''} ngày</button></div>`:'';
@@ -859,19 +937,19 @@ function renderDrawer(){
   const target=ck?fmtN(r.sess||sess):sess;
   $('#drawer').innerHTML=`
     <div class="dhead"><div style="flex:1;min-width:0"><h2>${esc(s.name)}</h2>
-      <div class="sub">${esc([s.group,s.phone,days.length?'Lịch: '+days.map(d=>DOW[d]).join(', '):'',ck?`Khoá ${s.course.sessions} buổi · ${sess} buổi/tháng`:VND(s.fee)+'/tháng · '+sess+' buổi'].filter(Boolean).join(' · '))}</div>
+      <div class="sub">${esc([s.group,s.phone,days.length?'Lịch: '+days.map(d=>DOW[d]).join(', '):'',ck?`Khoá ${s.course.sessions} buổi · ${sess} buổi/tháng`:pkK?`Gói ${sess} buổi = ${VND(s.fee)}`:VND(s.fee)+'/tháng · '+sess+' buổi'].filter(Boolean).join(' · '))}</div>
       ${s.note?`<div class="sub" style="margin-top:2px">${esc(s.note)}</div>`:''}</div>
       <button class="btn sm" data-edit="${id}">Sửa</button><button class="x" id="closeD" aria-label="Đóng">×</button></div>
-    ${ck?courseCard(id):`<div class="card"><h3>Học phí năm ${y}</h3><div class="mstrip">${strip}</div></div>`}
+    ${ck?courseCard(id):pkK?packCard(id):`<div class="card"><h3>Học phí năm ${y}</h3><div class="mstrip">${strip}</div></div>`}
     <div class="card"><h3><button class="x" data-mv="-1" aria-label="Tháng trước" style="font-size:20px">‹</button>${mLabel(mk)}<button class="x" data-mv="1" aria-label="Tháng sau" style="font-size:20px">›</button><span class="spacer"></span><span class="st ${r.st}">${ST_TXT[r.st]}</span></h3>
       <div class="attbar"><div class="seg sm" role="group" aria-label="Cách đánh dấu">${amode('detail','Chọn từng ngày')}${amode('quick','Tích nhanh')}${amode('multi','Chọn nhiều ngày')}</div></div>
       <div class="cal">${cal}</div>${multibar}
-      <div class="calstats"><span>Đã học <b>${fmtN(a.learned)}/${target}</b></span><span>Có mặt <b>${fmtN(a.p)}</b></span>${a.m?`<span>Học bù <b>${fmtN(a.m)}</b></span>`:''}<span>Vắng <b>${fmtN(a.a)}</b></span><span>Có phép <b>${fmtN(a.e)}</b></span>${ck?'':`<span>Còn lại <b>${fmtN(Math.max(0,sess-a.learned))}</b> buổi</span>`}${days.length?`<span>Lịch tháng này: ${planned} buổi</span>`:''}</div>
+      <div class="calstats">${pkK?`<span>Tháng này học <b>${fmtN(a.learned)}</b> buổi</span><span>Đợt ${P.cur.i+1}: <b>${fmtN(P.cur.learned)}/${fmtN(P.per)}</b></span>`:`<span>Đã học <b>${fmtN(a.learned)}/${target}</b></span>`}<span>Có mặt <b>${fmtN(a.p)}</b></span>${a.m?`<span>Học bù <b>${fmtN(a.m)}</b></span>`:''}<span>Vắng <b>${fmtN(a.a)}</b></span><span>Có phép <b>${fmtN(a.e)}</b></span>${ck||pkK?'':`<span>Còn lại <b>${fmtN(Math.max(0,sess-a.learned))}</b> buổi</span>`}${days.length?`<span>Lịch tháng này: ${planned} buổi</span>`:''}</div>
       <div class="legend cal-lg"><span style="--c:var(--jade)">✓ Có mặt</span><span style="--c:var(--red)">✕ Vắng</span><span style="--c:var(--amber)">P Có phép</span><span style="--c:var(--blue)">Bù Học bù</span></div>
-      <p class="hint">${HINT[ui.attMode]} Ô viền nét đứt là ngày có lịch học; chấm nhỏ dưới số là ngày có ghi chú.</p>
+      <p class="hint">${HINT[ui.attMode]} Ô viền nét đứt là ngày có lịch học; chấm nhỏ dưới số là ngày có ghi chú.${pkK?' Chữ Đ2, Đ3… ở góc ô là ngày bắt đầu đợt mới.':''}</p>
     </div>
     <div class="card"><h3>Tiền ${mLow(mk)}<span class="spacer"></span>${r.owe>0.5?`<button class="btn sm pay" data-quick="${id}">Đã đóng ${short(r.owe)}</button>`:''}</h3>
-      <div class="kv"><span>Phải đóng${ck?` (${fmtN(r.sess)} buổi)`:''}</span><b>${VND(r.due)}</b><span>Đã đóng${r.course?' (gồm phần chia từ gói)':ck?' (trừ từ tiền đã góp)':''}</span><b class="ok">${VND(r.paid)}</b><span>Còn nợ</span><b class="${r.owe>0.5?'owe':''}">${VND(r.owe)}</b></div>
+      <div class="kv"><span>Phải đóng${ck?` (${fmtN(r.sess)} buổi)`:pkK&&r.packs.length?` (đợt ${r.packs.map(p=>p.i+1).join(', ')} bắt đầu trong tháng)`:''}</span><b>${VND(r.due)}</b><span>Đã đóng${r.course?' (gồm phần chia từ gói)':ck?' (trừ từ tiền đã góp)':''}</span><b class="ok">${VND(r.paid)}</b><span>Còn nợ</span><b class="${r.owe>0.5?'owe':''}">${VND(r.owe)}</b></div>
     </div>
     <div class="card"><h3>Lịch sử đóng tiền<span class="spacer"></span><button class="btn sm primary" data-payfor="${id}">+ Ghi nhận</button></h3>${payList}</div>`;
 }
@@ -891,10 +969,11 @@ fillMonths($('#fStart'));fillMonths($('#fEnd'),true,'Vẫn đang học');fillMon
 $('#fDays').innerHTML=[1,2,3,4,5,6,0].map(d=>`<label><input type="checkbox" value="${d}"><span>${DOW[d]}</span></label>`).join('');
 
 /* ---------- student dialog ---------- */
-let editing=null,fKind='month';
+let editing=null,fKind='pack';
 function setKind(k){fKind=k;$$('#fKind button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===k));
   $('#fCourseBox').classList.toggle('hide',k!=='ck');$('#fCInfo').classList.toggle('hide',k!=='ck');$('#fFeeWrap').classList.toggle('hide',k==='ck');$('#fEndWrap').classList.toggle('hide',k==='ck');
-  $('#fStartLbl').textContent=k==='ck'?'Khoá bắt đầu tháng':'Bắt đầu học từ';fInfo()}
+  $('#fStartLbl').textContent=k==='ck'?'Khoá bắt đầu tháng':'Bắt đầu học từ';
+  $('#fPInfo').classList.toggle('hide',k!=='pack');$('#fFeeLbl').textContent=k==='pack'?'Học phí mỗi gói (đ)':'Học phí / tháng (đ)';$('#fSessLbl').textContent=k==='pack'?'Số buổi mỗi gói':'Số buổi / tháng';fInfo()}
 function fInfo(){if(fKind!=='ck')return;const total=+$('#fCTotal').value||0,ss=+$('#fCSess').value||0,per=+$('#fSess').value||0,pre=+$('#fCPre').value||0;
   if(!total||!ss||!per){$('#fCInfo').textContent='Nhập học phí cả khoá, tổng số buổi và số buổi mỗi tháng.';return}
   const price=total/ss,months=Math.ceil(ss/per),st=$('#fStart').value;
@@ -908,7 +987,7 @@ function openStudent(id){
   $('#fCPreWrap').classList.toggle('hide',!!(s.course));
   $$('#fDays input').forEach(c=>c.checked=(s.days||[]).includes(+c.value));
   $('#groupList').innerHTML=groups().filter(([g])=>g).map(([g])=>`<option value="${esc(g)}">`).join('');
-  setKind(isCK(s)?'ck':'month');$('#fDel').hidden=!id;$('#dStudent').showModal();$('#fName').focus();
+  setKind(id?kindOf(s):'pack');$('#fDel').hidden=!id;$('#dStudent').showModal();$('#fName').focus();
 }
 ['#fCTotal','#fCSess','#fSess','#fCPre'].forEach(q=>$(q).addEventListener('input',fInfo));$('#fStart').addEventListener('change',fInfo);
 $$('#fKind button').forEach(b=>b.onclick=()=>setKind(b.dataset.v));
@@ -921,7 +1000,7 @@ $('#fSave').onclick=()=>{
   if(fKind==='ck'){const total=+$('#fCTotal').value,ss=+$('#fCSess').value;
     if(!(total>0)){$('#fCTotal').focus();toast('Nhập học phí cả khoá.');return}if(!(ss>0)){$('#fCSess').focus();toast('Nhập tổng số buổi của khoá.');return}
     data.course={total,sessions:ss,mode:$('#fCMode').value};data.fee=Math.round(total/ss*sess);if(!had)pre=+$('#fCPre').value||0}
-  else data.fee=+$('#fFee').value||0;
+  else{data.fee=+$('#fFee').value||0;if(fKind==='pack')data.kind='pack'}
   const id=editing||uid();write('students',id,data);
   if(pre>0)write('payments',uid(),{sid:id,type:'ck',amount:pre,date:TODAY,note:'Đóng trước khi vào khoá'});
   $('#dStudent').close();render();toast(editing?'Đã lưu thay đổi.':`Đã thêm ${name}.`);
@@ -943,19 +1022,22 @@ function openPay(sid,mk,amount){
   syncPayKind();if(amount>0){$('#pAmount').value=Math.round(amount);amtTouched=true;info()}
   $('#dPay').showModal();
 }
-function syncPayKind(){const ck=isCK(stu($('#pSid').value));$('#pTypeField').classList.toggle('hide',ck);$('#pMonthRow').classList.toggle('hide',ck);if(ck)pType='ck';else if(pType==='ck')pType='month';setType(pType);autoAmount()}
+function syncPayKind(){const s=stu($('#pSid').value);const ck=isCK(s),pk=isPack(s);$('#pTypeField').classList.toggle('hide',ck||pk);$('#pMonthRow').classList.toggle('hide',ck||pk);if(ck)pType='ck';else if(pk)pType='pk';else if(pType==='ck'||pType==='pk')pType='month';setType(pType);autoAmount()}
 function setType(t){pType=t;$$('#pType button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===t));$('#pMonthsWrap').hidden=t!=='course';$('#pMonthLbl').textContent=t==='course'?'Bắt đầu từ tháng':'Cho tháng'}
 function autoAmount(){
   const sid=$('#pSid').value,s=stu(sid);if(!s)return;const fee=+s.fee||0;
   if(!amtTouched){
-    if(pType==='ck'){const r=status(sid,ui.month);const nx=nextCKDue(sid);$('#pAmount').value=Math.round(r.owe>0.5?r.owe:nx?nx.owe:fee)}
+    if(pType==='pk'){const nx=nextPackDue(sid);$('#pAmount').value=Math.round(nx?nx.owe:fee)}
+    else if(pType==='ck'){const r=status(sid,ui.month);const nx=nextCKDue(sid);$('#pAmount').value=Math.round(r.owe>0.5?r.owe:nx?nx.owe:fee)}
     else if(pType==='course')$('#pAmount').value=fee*(+$('#pMonths').value||1);
     else{const r=status(sid,$('#pMonth').value);$('#pAmount').value=r.owe>0?Math.round(r.owe):fee}}
   info();
 }
 function info(){
   const sid=$('#pSid').value,amt=+$('#pAmount').value||0,m=$('#pMonth').value;
-  if(pType==='ck'){const cs=cSummary(sid);const add=cs.price?amt/cs.price:0;
+  if(pType==='pk'){const P=packInfo(sid);const tot=P.paid+amt;const full=P.fee?Math.floor(tot/P.fee+1e-9):0;const rem=P.price?(tot-full*P.fee)/P.price:0;
+    $('#pInfo').textContent=`${VND(amt)} = ${fmtN(Math.round(amt/(P.price||1)*10)/10)} buổi. Sau khi đóng: đã trả đủ ${full} đợt${rem>0.05?` + ${fmtN(Math.round(rem*10)/10)} buổi`:''} (tổng ${VND(tot)}). Học viên đang học đợt ${P.cur.i+1} (${fmtN(P.cur.learned)}/${fmtN(P.per)} buổi).`}
+  else if(pType==='ck'){const cs=cSummary(sid);const add=cs.price?amt/cs.price:0;
     $('#pInfo').textContent=`${VND(amt)} = ${fmtN(Math.round(add*10)/10)} buổi (${VND(cs.price)}/buổi). Sau khi đóng: đã trả ${VND(cs.paid+amt)} / ${VND(cs.total)} (${fmtN(Math.round((cs.paidSess+add)*10)/10)}/${cs.sessions} buổi), còn ${VND(Math.max(0,cs.total-cs.paid-amt))}.`}
   else if(pType==='course'){const n=+$('#pMonths').value||1;$('#pInfo').textContent=`Chia đều ${VND(amt)} cho ${n} tháng (${mShort(m)} – ${mShort(addM(m,n-1))}): ≈ ${VND(amt/n)}/tháng.`}
   else{const r=status(sid,m);$('#pInfo').textContent=r.due?`${mLabel(m)}: phải đóng ${VND(r.due)}, đã đóng ${VND(r.paid)}.`:`${mLabel(m)} nằm ngoài thời gian học của học viên này.`}
@@ -966,13 +1048,13 @@ $('#pAmount').oninput=()=>{amtTouched=true;info()};
 $('#pSave').onclick=()=>{
   const amt=+$('#pAmount').value;if(!(amt>0)){$('#pAmount').focus();toast('Nhập số tiền lớn hơn 0.');return}
   const p={sid:$('#pSid').value,type:pType,amount:amt,date:$('#pDate').value||TODAY,note:$('#pNote').value.trim()};
-  if(pType!=='ck')p.month=$('#pMonth').value;if(pType==='course')p.months=Math.max(1,+$('#pMonths').value||1);
+  if(pType!=='ck'&&pType!=='pk')p.month=$('#pMonth').value;if(pType==='course')p.months=Math.max(1,+$('#pMonths').value||1);
   const pid=uid();write('payments',pid,p);$('#dPay').close();render();
   toast(`Đã ghi nhận ${VND(amt)} — ${stu(p.sid).name}.`,()=>{write('payments',pid,null);render()});
 };
 function quickPay(id){
   const mk=ui.month,r=status(id,mk);if(r.owe<=0.5)return;
-  const p=r.ck?{sid:id,type:'ck',amount:Math.round(r.owe),date:TODAY,note:`Góp cho ${mLow(mk)}`}:{sid:id,type:'month',month:mk,amount:Math.round(r.owe),date:TODAY,note:''};
+  const p=r.pk?{sid:id,type:'pk',amount:Math.round(r.owe),date:TODAY,note:''}:r.ck?{sid:id,type:'ck',amount:Math.round(r.owe),date:TODAY,note:`Góp cho ${mLow(mk)}`}:{sid:id,type:'month',month:mk,amount:Math.round(r.owe),date:TODAY,note:''};
   const pid=uid();write('payments',pid,p);render();
   toast(`${stu(id).name}: đã đóng ${VND(r.owe)} cho ${mLow(mk)}.`,()=>{write('payments',pid,null);render()});
 }
@@ -984,7 +1066,7 @@ $('#mCopy').onclick=async()=>{const ta=$('#mText');
   catch(e){ta.focus();ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}toast(ok?'Đã sao chép tin nhắn.':'Tin nhắn đã được bôi đen — nhấn giữ hoặc Ctrl+C để sao chép.')}};
 
 /* ---------- attendance ---------- */
-function applyAtt(id,changes){const cur={...(S.att[id]||{})};const prev={};
+function applyAtt(id,changes){PKC={};const cur={...(S.att[id]||{})};const prev={};
   for(const[k,v]of Object.entries(changes)){prev[k]=cur[k]??null;if(v)cur[k]=v;else delete cur[k]}
   S.att[id]=cur;saveAttDays(id,changes);render();return prev}
 function refocusDay(k){const el=document.querySelector(`[data-day="${k}"]`);el&&el.focus()}
@@ -1004,7 +1086,9 @@ function aPreview(){const id=ui.open,s=stu(id);if(!s||!aDays.length)return;const
   const marks=S.att[id]||{};const mk=aDays[0].slice(0,7);let delta=0;
   for(const k of aDays){const ex=rec(marks[k]);delta+=-(ex&&(ex.s==='p'||ex.s==='m')?ex.n:0)+((aStat==='p'||aStat==='m')?n:0)}
   const el=$('#aPreview');let t=aDays.length>1?`${aDays.length} ngày × ${fmtN(n)} buổi = ${fmtN(n*aDays.length)} buổi ${ATT[aStat].t.toLowerCase()}. `:'';
-  if(isCK(s)){const cs=cSummary(id);const after=cs.learned+delta;const bal=cs.paidSess-after;
+  if(isPack(s)){const P=packInfo(id);const after=P.learned+delta;const q=packAfter(P,after);
+    t+=after>0?`Sau khi xác nhận: đợt ${q.idx+1}, buổi ${fmtN(q.pos)}/${fmtN(P.per)}`+(q.paidOk?' — đợt này đã đóng.':' — đợt này chưa đóng đủ.'):'Sau khi xác nhận: chưa có buổi nào.';el.classList.toggle('warn',after>0&&!q.paidOk)}
+  else if(isCK(s)){const cs=cSummary(id);const after=cs.learned+delta;const bal=cs.paidSess-after;
     t+=`Sau khi xác nhận: đã học ${fmtN(after)}/${cs.sessions} buổi của khoá`+(bal<0?` — vượt ${fmtN(Math.round(-bal*10)/10)} buổi so với tiền đã đóng.`:`, còn ${fmtN(Math.round(bal*10)/10)} buổi đã trả.`);el.classList.toggle('warn',bal<0)}
   else{const sess=+s.sess||DEF_SESS;const after=attStats(id,mk).learned+delta;
     t+=`Sau khi xác nhận: đã học ${fmtN(after)}/${sess} buổi trong ${mLow(mk)}`+(after>sess?` — vượt ${fmtN(after-sess)} buổi so với gói ${sess} buổi.`:`, còn ${fmtN(sess-after)} buổi.`);el.classList.toggle('warn',after>sess)}
@@ -1049,6 +1133,9 @@ $('#view').addEventListener('click',e=>{const t=e.target;
   const ca=t.closest('[data-call]');if(ca){const c=ui.cls;const k=ca.dataset.call;clsStudents().forEach(([id])=>{if(k==='p')c.draft[id]='p';else if(k==='clear')delete c.draft[id];else if(!c.draft[id])c.draft[id]='a'});c.dirty=true;render();return}
   if(t.closest('#cSave')){saveClass();return}
   const f=t.closest('[data-filter]');if(f){ui.filter=f.dataset.filter;render();return}
+  const cv=t.closest('[data-conv]');if(cv){if(cv.dataset.conv==='later'){try{localStorage.setItem('so-hoc-phi-conv','1')}catch(_){}render();return}
+    const list=Object.entries(S.students).filter(([,s])=>kindOf(s)==='month');if(!confirm(`Chuyển ${list.length} học viên sang tính theo gói ${DEF_SESS} buổi cuốn chiếu?`))return;
+    list.forEach(([id,s])=>write('students',id,{...s,kind:'pack'}));render();toast(`Đã chuyển ${list.length} học viên sang gói buổi.`);return}
   const tg=t.closest('[data-tabgo]');if(tg){ui.tab=tg.dataset.tabgo;render();return}
   if(t.closest('[data-act="add"]')){openStudent();return}
   const ms=t.closest('[data-msg]');if(ms){openMsg(lastRs[+ms.dataset.msg]);return}
